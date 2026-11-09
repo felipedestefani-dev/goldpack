@@ -13,10 +13,13 @@ export const store = {
   email: "",
   hours: "",
   city: "",
+  // Identificação exigida pelo Decreto 7.962/2013 (comércio eletrônico).
+  legalName: "Goldpack",
+  cnpj: "54.212.466/0001-80",
+  address: "",
 };
 
-export const benefits = [
-  { title: "Lacrados", text: "Boxes, boosters e blisters prontos para colecionar" },
-  { title: "Avulsos", text: "Cartas com condição e acabamento em cada item" },
-  { title: "WhatsApp", text: "Escolheu? Chame a loja e feche pelo WhatsApp" },
-];
+export const developer = {
+  name: "Felipe",
+  url: "https://felipeseussites.vercel.app",
+};

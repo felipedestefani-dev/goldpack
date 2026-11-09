@@ -319,7 +319,7 @@ function bannersPanel() {
             <button class="danger tiny" type="button" data-act="delete-banner" data-id="${esc(banner.id)}">Excluir</button>
           </div>
         </article>
-      `).join("") : `<div class="panel"><h2>Nenhum banner</h2><p>A faixa só aparece depois que você publicar uma imagem.</p></div>`}
+      `).join("") : `<div class="panel"><h2>Nenhum banner</h2><p>Enquanto não houver imagem publicada, a loja mostra o banner animado da Goldpack.</p></div>`}
     </div>
   `;
 }
@@ -329,7 +329,7 @@ function tabsPanel() {
     <div class="workspace-head">
       <div>
         <h1>Abas</h1>
-        <p class="note">Os atalhos que aparecem na loja, abaixo do banner.</p>
+        <p class="note">Os atalhos do menu da loja.</p>
       </div>
       <button class="btn btn-orange" type="button" data-act="new-tab">Nova aba</button>
     </div>

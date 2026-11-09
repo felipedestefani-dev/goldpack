@@ -1,22 +1,29 @@
-import { benefits, store } from "./config.js";
+import { developer, store } from "./config.js";
+import { POLICIES, policyTitle, policyView } from "./policies.js";
 import { discountOf, esc, friendlyError, kindLabel, money, safeUrl } from "./format.js";
 import { getClient, isConfigured } from "./supabase.js";
 
 const state = {
   products: [],
-  banners: [],
   tabs: [],
-  bannerIndex: 0,
   status: isConfigured() ? "loading" : "unconfigured",
   error: "",
   menuOpen: false,
+  noticeOpen: !noticeSeen(),
   filtersOpen: false,
   qty: 1,
   qtyFor: "",
 };
 
 const app = document.querySelector("#app");
-const bootStarted = Date.now();
+
+function noticeSeen() {
+  try {
+    return localStorage.getItem("goldpack-aviso") === "1";
+  } catch {
+    return false;
+  }
+}
 
 function currentRoute() {
   const raw = (location.hash || "#/").replace(/^#/, "");
@@ -53,13 +60,14 @@ function buyMessage(product, qty = 1) {
   return `Olá, Goldpack! Quero comprar ${amount}${product.name} (${money(product.price)}).`;
 }
 
-function hideBoot() {
+async function hideBoot() {
   const boot = document.getElementById("boot");
   if (!boot || boot.dataset.done) return;
   boot.dataset.done = "1";
-  const wait = Math.max(0, 900 - (Date.now() - bootStarted));
-  setTimeout(() => boot.classList.add("is-done"), wait);
-  setTimeout(() => boot.remove(), wait + 450);
+  const animations = boot.getAnimations ? boot.getAnimations({ subtree: true }) : [];
+  await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
+  boot.classList.add("is-done");
+  setTimeout(() => boot.remove(), 500);
 }
 
 function initials(name) {
@@ -137,6 +145,7 @@ function render() {
 function titleFor(route) {
   if (route.name === "catalog") return "Catálogo — Goldpack";
   if (route.name === "contato") return "Contato — Goldpack";
+  if (policyTitle(route.name)) return `${policyTitle(route.name)} — Goldpack`;
   if (route.name === "p") {
     const product = productById(route.id);
     return product ? `${product.name} — Goldpack` : "Produto — Goldpack";
@@ -152,11 +161,12 @@ function view(route) {
       ${route.name === "catalog" ? catalogView(route) : ""}
       ${route.name === "p" ? productView(route) : ""}
       ${route.name === "contato" ? contactView() : ""}
-      ${route.name === "home" || !["catalog", "p", "contato"].includes(route.name) ? homeView() : ""}
+      ${policyTitle(route.name) ? policyView(route.name, { phone: phoneLabel(), whatsapp: whatsappLink("Olá, Goldpack!") }) : ""}
+      ${route.name === "home" || !(["catalog", "p", "contato"].includes(route.name) || policyTitle(route.name)) ? homeView() : ""}
     </main>
     ${footer()}
     ${state.menuOpen ? menuDrawer() : ""}
-    ${phoneDigits() ? `<a class="wa" href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">${whatsappIcon()}</a>` : ""}
+    ${state.noticeOpen ? privacyNotice() : ""}
   `;
 }
 
@@ -187,8 +197,6 @@ function header(route) {
           <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
         </div>
         </div>
-        ${bannerHtml()}
-        ${storeTabsHtml()}
       </div>
     </header>
   `;
@@ -218,32 +226,6 @@ function navLinks() {
     .join("");
 }
 
-function storeTabsHtml() {
-  const links = state.tabs
-    .map((tab) => {
-      const href = safeHref(tab.href);
-      return href ? `<a href="${esc(href)}">${esc(tab.label)}</a>` : "";
-    })
-    .join("");
-  if (!links) return "";
-  return `<nav class="store-tabs" aria-label="Abas da loja">${links}</nav>`;
-}
-
-function bannerHtml() {
-  const items = state.banners.filter((banner) => safeUrl(banner.image_url));
-  if (!items.length) return "";
-  const index = ((state.bannerIndex % items.length) + items.length) % items.length;
-  const banner = items[index];
-  const image = safeUrl(banner.image_url);
-  const picture = `<img src="${esc(image)}" alt="${esc(banner.title || "Banner")}">`;
-  const href = safeHref(banner.link);
-  const linked = href ? `<a href="${esc(href)}">${picture}</a>` : picture;
-  const dots = items.length > 1
-    ? `<div class="banner-dots">${items.map((_, dot) => `<button type="button" class="${dot === index ? "on" : ""}" data-act="banner-go" data-i="${dot}" aria-label="Banner ${dot + 1}"></button>`).join("")}</div>`
-    : "";
-  return `<div class="promo-banner">${linked}${dots}</div>`;
-}
-
 function options(pairs, current) {
   return pairs.map(([value, label]) => (
     `<option value="${esc(value)}" ${value === current ? "selected" : ""}>${esc(label)}</option>`
@@ -251,53 +233,25 @@ function options(pairs, current) {
 }
 
 function homeView() {
-  const featured = state.products.filter((product) => product.featured);
+  const ready = state.status === "ready";
   const sealed = state.products.filter((product) => product.kind === "sealed").slice(0, 8);
+  const singles = state.products.filter((product) => product.kind === "single").slice(0, 8);
+  const featured = state.products.filter((product) => product.featured).slice(0, 8);
   const accessories = state.products.filter((product) => product.kind === "accessory").slice(0, 8);
-  const groups = new Map();
-  state.products.filter((product) => product.kind === "single").forEach((product) => {
-    const key = product.collection || "Outras cartas";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(product);
-  });
-  const sections = [];
-  if (featured.length) sections.push(section("Destaques", "Seleção da Goldpack", featured.slice(0, 8), "#/catalog?sort=recent"));
-  if (sealed.length) sections.push(section("Lacrados", "Boxes, boosters e blisters", sealed, "#/catalog?kind=sealed"));
-  let shown = 0;
-  for (const [collection, items] of groups) {
-    if (shown >= 4) break;
-    const code = items.find((item) => item.collection_code)?.collection_code;
-    const game = items.find((item) => item.game)?.game;
-    sections.push(section(
-      "Avulsos",
-      [collection, code, game].filter(Boolean).join(" · "),
-      items.slice(0, 8),
-      `#/catalog?kind=single&collection=${encodeURIComponent(collection)}`,
-    ));
-    shown += 1;
-  }
-  if (accessories.length) sections.push(section("Acessórios", "Sleeves, pastas e o que você precisa para jogar", accessories, "#/catalog?kind=accessory"));
-
   return `
-    <section class="benefits wrap" aria-label="Como comprar">
-      ${benefits.map((item) => `<article class="benefit"><strong>${esc(item.title)}</strong><span>${esc(item.text)}</span></article>`).join("")}
-    </section>
     ${statusBlock()}
-    ${state.status === "ready" && state.products.length ? sections.join("") : ""}
-    ${state.status === "ready" && !state.products.length ? emptyCatalog() : ""}
+    ${ready && featured.length ? section("Destaques", featured, "#/catalog?sort=recent") : ""}
+    ${ready && sealed.length ? section("Lacrados", sealed, "#/catalog?kind=sealed") : ""}
+    ${ready && singles.length ? section("Avulsos", singles, "#/catalog?kind=single") : ""}
+    ${ready && accessories.length ? section("Acessórios", accessories, "#/catalog?kind=accessory") : ""}
+    ${ready && !state.products.length ? emptyCatalog() : ""}
   `;
 }
 
-function section(title, subtitle, products, href, plain = false) {
+function section(title, products, href, { plain = false } = {}) {
   return `
     <section class="section ${plain ? "" : "wrap"}">
-      <div class="section-head">
-        <div>
-          <h2>${esc(title)}</h2>
-          <p>${esc(subtitle)}</p>
-        </div>
-        <a href="${esc(href)}">Ver todos</a>
-      </div>
+      <h2 class="section-title"><a href="${esc(href)}">${esc(title)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a></h2>
       <div class="grid">${products.map(card).join("")}</div>
     </section>
   `;
@@ -345,7 +299,7 @@ function statusBlock() {
 }
 
 function emptyCatalog() {
-  return `<section class="section wrap"><div class="panel"><h2>Novidades a caminho</h2><p>A vitrine está sendo atualizada. Enquanto isso, chame a Goldpack no WhatsApp e pergunte o que tem disponível.</p><a class="btn btn-orange" href="${whatsappLink("Olá, Goldpack! Quero ver o que tem disponível.")}">Falar no WhatsApp</a></div></section>`;
+  return `<section class="section wrap empty-state"><h2>Novidades a caminho</h2><p>A vitrine está sendo atualizada. Confira o catálogo completo da Goldpack.</p><a class="btn btn-orange" href="#/catalog">Ver Catálogo</a></section>`;
 }
 
 function catalogView(route) {
@@ -466,7 +420,7 @@ function productView(route) {
           </div>
         </div>
       </article>
-      ${related.length ? section("Da mesma coleção", product.collection, related, `#/catalog?collection=${encodeURIComponent(product.collection)}`, true) : ""}
+      ${related.length ? section("Da mesma coleção", related, `#/catalog?collection=${encodeURIComponent(product.collection)}`, { plain: true }) : ""}
     </div>
   `;
 }
@@ -499,32 +453,23 @@ function contactView() {
 }
 
 function footer() {
-  const contact = [
-    store.city ? `<p>${esc(store.city)}</p>` : "",
-    store.hours ? `<p>${esc(store.hours)}</p>` : "",
-    store.email ? `<a href="mailto:${esc(store.email)}">${esc(store.email)}</a>` : "",
-    phoneDigits() ? `<a href="${whatsappLink("Olá, Goldpack!")}" target="_blank" rel="noopener">WhatsApp</a>` : "",
-  ].filter(Boolean);
   return `
     <footer class="footer">
-      <div class="wrap footer-grid">
-        <div>
-          <img class="footer-logo" src="assets/logo.png" alt="Goldpack">
-          <p>${esc(store.tagline)}</p>
-        </div>
-        <div>
-          <h2>Loja</h2>
-          <a href="#/">Início</a>
-          <a href="#/catalog">Catálogo</a>
-          <a href="#/contato">Contato</a>
-        </div>
-        <div>
-          <h2>Atendimento</h2>
-          ${contact.join("") || `<p>Chame no WhatsApp ${esc(phoneLabel())}.</p>`}
-        </div>
-      </div>
-      <div class="wrap legal">Goldpack · TCG, colecionáveis e games.</div>
+      <nav class="footer-links" aria-label="Institucional">
+        <a href="#/contato">Contato</a>
+        ${POLICIES.map(([id, label]) => `<a href="#/${id}">${esc(label)}</a>`).join("")}
+      </nav>
+      <p class="credit">Site desenvolvido por <a href="${esc(developer.url)}" target="_blank" rel="noopener">${esc(developer.name)}</a></p>
     </footer>
+  `;
+}
+
+function privacyNotice() {
+  return `
+    <div class="notice" role="region" aria-label="Aviso de privacidade">
+      <p>Registramos dados técnicos da visita, como IP e página, para segurança e estatística, conforme a LGPD. Saiba mais em <a href="#/privacidade">Privacidade</a> e <a href="#/cookies">Cookies</a>.</p>
+      <button class="btn btn-orange" type="button" data-act="notice-ok">Entendi</button>
+    </div>
   `;
 }
 
@@ -550,10 +495,6 @@ function menuIcon() {
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>`;
 }
 
-function whatsappIcon() {
-  return `<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.15 6.4 2.15 11.83c0 1.74.46 3.44 1.34 4.94L2 22l5.39-1.4a10 10 0 0 0 4.65 1.18h.01c5.46 0 9.89-4.4 9.89-9.83C21.94 6.4 17.5 2 12.04 2zm5.76 14.56c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.81-.11-.42-.14-.95-.31-1.64-.6-2.88-1.24-4.76-4.14-4.9-4.33-.14-.19-1.16-1.54-1.16-2.94s.73-2.08 1-2.37c.24-.28.64-.41 1.02-.41h.73c.23 0 .55-.09.86.65.32.77 1.08 2.64 1.18 2.83.1.19.16.42.03.67-.13.26-.2.42-.39.64-.19.23-.4.51-.57.68-.19.19-.39.4-.17.77.22.37 1 1.64 2.14 2.66 1.47 1.3 2.71 1.7 3.08 1.89.37.19.59.16.8-.1.22-.26.92-1.07 1.17-1.44.24-.37.49-.3.82-.18.33.13 2.08 1 2.44 1.18.36.19.6.28.68.43.08.16.08.9-.16 1.58z"></path></svg>`;
-}
-
 function whatsappLink(message) {
   return `https://wa.me/${phoneDigits()}?text=${encodeURIComponent(message)}`;
 }
@@ -577,15 +518,21 @@ function bind() {
     const target = event.target.closest("[data-act]");
     if (!target || target.tagName === "FORM") return;
     const act = target.dataset.act;
-    if (act === "menu-open") state.menuOpen = true;
+    if (act === "notice-ok") {
+      state.noticeOpen = false;
+      try {
+        localStorage.setItem("goldpack-aviso", "1");
+      } catch {
+        /* storage blocked: the notice just shows again next visit */
+      }
+    } else if (act === "menu-open") state.menuOpen = true;
     else if (act === "menu-close") state.menuOpen = false;
     else if (act === "filters") state.filtersOpen = !state.filtersOpen;
     else if (act === "qty") {
       const product = productById(currentRoute().id);
       const stock = Math.max(1, Number(product?.stock) || 1);
       state.qty = Math.min(stock, Math.max(1, state.qty + Number(target.dataset.dir)));
-    } else if (act === "banner-go") state.bannerIndex = Number(target.dataset.i) || 0;
-    else return;
+    } else return;
     render();
   });
 
@@ -656,8 +603,6 @@ async function loadProducts() {
 }
 
 async function loadStorefrontExtras(supabase) {
-  const banners = await supabase.from("banners").select("*").eq("active", true).order("sort_order", { ascending: true });
-  if (!banners.error) state.banners = banners.data || [];
   const tabs = await supabase.from("store_tabs").select("*").eq("active", true).order("sort_order", { ascending: true });
   if (!tabs.error) state.tabs = tabs.data || [];
 }

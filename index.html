@@ -10,11 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" href="assets/mimikyu-sprite.webp" as="image">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <div id="boot" class="boot" role="status" aria-label="Carregando Goldpack">
-    <img src="assets/logo.png" alt="Goldpack">
+    <div class="boot-sprite" aria-hidden="true"></div>
+    <div class="boot-bar" aria-hidden="true"><span></span></div>
   </div>
   <div id="app"></div>
   <script type="module" src="js/catalog.js"></script>
