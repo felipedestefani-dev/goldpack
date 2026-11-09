@@ -1,0 +1,150 @@
+body.admin { background: #fbf8fd; }
+.auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px;
+  background:
+    radial-gradient(520px 240px at 0% 0%, rgba(240, 120, 22, 0.18), transparent 60%),
+    radial-gradient(480px 260px at 100% 0%, rgba(59, 23, 96, 0.14), transparent 55%),
+    #fff;
+}
+.auth-card, .setup {
+  width: min(460px, 100%);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 26px 22px;
+  box-shadow: var(--shadow);
+}
+.setup { width: min(760px, 100%); }
+.auth-card img, .setup img { height: 92px; width: auto; margin: 0 auto 8px; }
+.auth-card h1, .setup h1 { text-align: center; font-size: 32px; }
+.lede { text-align: center; color: var(--muted); margin: 8px 0 18px; }
+.stack { display: grid; gap: 12px; }
+.stack label, .field { display: grid; gap: 6px; font-weight: 800; font-size: 13px; color: var(--muted); }
+.auth-card input, .setup input {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: white;
+}
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.alert {
+  background: #fff1f3;
+  color: #9f1239;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+.ok {
+  background: #edfbf3;
+  color: #0f8a4b;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+.setup ol { margin: 0; padding-left: 18px; display: grid; gap: 10px; }
+.setup code, .snippet {
+  display: block;
+  background: var(--lilac);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--purple);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.shell { min-height: 100vh; display: grid; grid-template-columns: 250px 1fr; }
+.side {
+  background: var(--purple-deep);
+  color: white;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.side img { height: 78px; width: auto; }
+.side p { color: rgba(255, 255, 255, 0.75); font-size: 14px; word-break: break-word; }
+.side a { color: white; }
+.workspace { padding: 22px 18px 40px; }
+.workspace-head, .toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.workspace-head h1 { font-size: 34px; }
+.toolbar input {
+  flex: 1;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 14px;
+  background: white;
+}
+.list { display: grid; gap: 10px; }
+.item {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 10px;
+}
+.item img, .item .thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--lilac);
+}
+.item h2 { font-size: 16px; }
+.item .meta { margin-top: 4px; }
+.switches { display: flex; gap: 8px; align-items: center; }
+.ghost, .danger, .tiny {
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: white;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+.danger { color: var(--sale); border-color: #ffd0d8; }
+.tiny { padding: 6px 10px; }
+.editor-back { position: fixed; inset: 0; background: rgba(28, 12, 46, 0.46); z-index: 40; }
+.editor {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(520px, 100%);
+  background: white;
+  z-index: 41;
+  overflow: auto;
+  padding: 18px 16px 28px;
+  box-shadow: var(--shadow);
+}
+.form-grid { display: grid; gap: 12px; }
+.form-grid .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.drop {
+  border: 1.5px dashed var(--purple-bright);
+  border-radius: 16px;
+  padding: 12px;
+  background: var(--lilac);
+  display: grid;
+  gap: 8px;
+}
+.drop img { max-height: 180px; margin: 0 auto; object-fit: contain; }
+.checks { display: flex; gap: 16px; flex-wrap: wrap; }
+.checks label { display: flex; gap: 8px; align-items: center; color: var(--ink); font-weight: 800; }
+
+@media (max-width: 800px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { flex-direction: row; align-items: center; justify-content: space-between; }
+  .side img { height: 54px; }
+  .item { grid-template-columns: 64px 1fr; }
+  .switches { grid-column: 1 / -1; }
+  .form-grid .split { grid-template-columns: 1fr; }
+}
