@@ -4,9 +4,10 @@
   --purple-bright: #6d35a8;
   --orange: #f07816;
   --orange-deep: #d96508;
-  --ink: #241433;
-  --muted: #6d6278;
-  --line: #eadff3;
+  --ink: #ffffff;
+  --muted: #d6c6e8;
+  --line: rgba(255, 255, 255, 0.16);
+  --accent: #ffb066;
   --lilac: #f6f1fb;
   --white: #ffffff;
   --sale: #d92d4a;
@@ -22,7 +23,7 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   color: var(--ink);
-  background: var(--white);
+  background: radial-gradient(circle at 50% 38%, var(--purple-bright), var(--purple) 45%, var(--purple-deep)) fixed var(--purple-deep);
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
@@ -81,7 +82,14 @@ body.lock { overflow: hidden; }
 img { max-width: 100%; display: block; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-a { color: var(--purple-bright); }
+a { color: var(--accent); }
+.search, .pcard, .panel, .filters, .spec, .notice, .menu, .drawer, .contact-card {
+  --ink: #241433;
+  --muted: #6d6278;
+  --line: #eadff3;
+  --accent: var(--orange-deep);
+  color: var(--ink);
+}
 h1, h2, h3 { font-family: var(--display); line-height: 1.15; margin: 0; }
 p { margin: 0; }
 
@@ -112,7 +120,7 @@ p { margin: 0; }
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(42, 16, 72, 0.88);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
@@ -138,7 +146,7 @@ p { margin: 0; }
   font-weight: 700;
   font-size: 15px;
 }
-.nav-desktop a:hover { color: var(--orange-deep); }
+.nav-desktop a:hover { color: var(--accent); }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .header-wa { padding: 8px 12px; font-size: 14px; white-space: nowrap; text-decoration: none; }
 
@@ -274,7 +282,7 @@ p { margin: 0; }
   color: var(--ink);
   text-decoration: none;
 }
-.section-title a:hover { color: var(--orange-deep); }
+.section-title a:hover { color: var(--accent); }
 .section-title svg {
   width: 20px;
   height: 20px;
@@ -431,7 +439,8 @@ p { margin: 0; }
   margin: 22px auto 48px;
 }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 14px; font-weight: 700; margin-top: 18px; }
-.crumbs a { color: var(--purple); text-decoration: none; }
+.crumbs a { color: var(--accent); text-decoration: none; }
+.product .price { color: var(--accent); }
 .gallery {
   background: var(--lilac);
   border-radius: 28px;
@@ -481,10 +490,10 @@ p { margin: 0; }
 }
 .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; }
 .footer-links a { color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 700; }
-.footer-links a:hover { color: var(--orange-deep); }
+.footer-links a:hover { color: var(--accent); }
 .credit { color: var(--muted); font-size: 12px; }
 .credit a {
-  color: var(--orange-deep);
+  color: var(--orange);
   font-weight: 800;
   text-decoration: underline;
   text-decoration-color: var(--orange);
@@ -493,11 +502,11 @@ p { margin: 0; }
 
 .policy { max-width: 760px; margin: 28px auto 0; }
 .policy h1 { font-size: clamp(30px, 4vw, 42px); margin-bottom: 14px; }
-.policy h2 { font-size: 20px; margin: 26px 0 8px; color: var(--purple); }
+.policy h2 { font-size: 20px; margin: 26px 0 8px; color: var(--accent); }
 .policy p, .policy li { color: var(--ink); }
 .policy p + p { margin-top: 10px; }
 .policy ul { padding-left: 20px; margin: 8px 0 0; display: grid; gap: 6px; }
-.policy a { color: var(--orange-deep); font-weight: 700; }
+.policy a { color: var(--accent); font-weight: 700; }
 .policy .note { margin-top: 28px; }
 
 .notice {
@@ -582,6 +591,7 @@ p { margin: 0; }
 .contact-card {
   max-width: 640px;
   margin: 22px auto 48px;
+  background: white;
   border: 1px solid var(--line);
   border-radius: 28px;
   padding: 22px;
