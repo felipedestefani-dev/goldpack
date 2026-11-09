@@ -1,5 +1,5 @@
 import { benefits, store } from "./config.js";
-import { discountOf, esc, kindLabel, money, safeUrl } from "./format.js";
+import { discountOf, esc, friendlyError, kindLabel, money, safeUrl } from "./format.js";
 import { getClient, isConfigured } from "./supabase.js";
 
 const CART_KEY = "goldpack-cart";
@@ -185,6 +185,7 @@ function header(route) {
         <a class="logo" href="#/" aria-label="Goldpack, início">
           <img src="assets/logo.png" alt="Goldpack — TCG, colecionáveis e games">
         </a>
+        <div class="header-row">
         <form class="search" data-act="search">
           <label class="sr" for="q">Buscar produtos</label>
           <select id="scope" aria-label="Escolher o que buscar">
@@ -204,6 +205,7 @@ function header(route) {
             ${cartCount() ? `<span class="badge">${cartCount()}</span>` : ""}
           </button>
           <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
+        </div>
         </div>
       </div>
     </header>
@@ -325,7 +327,7 @@ function statusBlock() {
     return `<section class="section wrap"><div class="panel"><h2>Catálogo pronto para conectar</h2><p>Quando a URL e a chave anon do Supabase estiverem em js/config.js, os produtos publicados aparecem aqui. Nada é exibido antes disso.</p><a class="btn btn-orange" href="admin.html">Como conectar</a></div></section>`;
   }
   if (state.status === "error") {
-    return `<section class="section wrap"><div class="panel"><h2>Não foi possível carregar os produtos</h2><p>${esc(state.error)}</p><p>Confira a URL, a chave anon e se o arquivo supabase/schema.sql já foi executado.</p></div></section>`;
+    return `<section class="section wrap"><div class="panel"><h2>Não foi possível carregar os produtos</h2><p>${esc(state.error)}</p></div></section>`;
   }
   return "";
 }
@@ -737,7 +739,7 @@ async function loadProducts() {
     state.status = "ready";
   } catch (error) {
     state.status = "error";
-    state.error = error.message || "Falha ao buscar o catálogo.";
+    state.error = friendlyError(error);
   }
 }
 

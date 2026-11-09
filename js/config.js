@@ -5,8 +5,8 @@
 // 3. Crie seu usuário em Authentication → Users e inclua o UUID na tabela admins.
 // 4. Preencha o WhatsApp da loja (só números, com DDI: 5511999999999).
 
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://tcgjtnrbpahaifmibudj.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_zox9wgYEwVjiLTm7vzC_9A_lr0xBNJ_";
 
 export const store = {
   name: "Goldpack",

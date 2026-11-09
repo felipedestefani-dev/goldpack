@@ -50,6 +50,9 @@ export function friendlyError(error) {
   if (/row-level security|42501/i.test(message) || error?.code === "42501") {
     return "Sem permissão. Confira se esta conta está na tabela admins e se o schema.sql foi executado.";
   }
+  if (/could not find the table|PGRST205|schema cache/i.test(message)) {
+    return "A loja já está ligada ao Supabase. Falta criar as tabelas: no SQL Editor, execute o arquivo supabase/schema.sql.";
+  }
   if (/bucket not found|storage/i.test(message)) {
     return "Não foi possível enviar a imagem. Confira se o bucket products existe e está público.";
   }
