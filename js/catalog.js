@@ -2,35 +2,21 @@ import { benefits, store } from "./config.js";
 import { discountOf, esc, friendlyError, kindLabel, money, safeUrl } from "./format.js";
 import { getClient, isConfigured } from "./supabase.js";
 
-const CART_KEY = "goldpack-cart";
 const state = {
   products: [],
+  banners: [],
+  tabs: [],
+  bannerIndex: 0,
   status: isConfigured() ? "loading" : "unconfigured",
   error: "",
-  cart: loadCart(),
-  cartOpen: false,
   menuOpen: false,
   filtersOpen: false,
   qty: 1,
   qtyFor: "",
-  toast: "",
-  toastTimer: 0,
 };
 
 const app = document.querySelector("#app");
-
-function loadCart() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed.filter((line) => line?.id && line.qty > 0) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCart() {
-  localStorage.setItem(CART_KEY, JSON.stringify(state.cart));
-}
+const bootStarted = Date.now();
 
 function currentRoute() {
   const raw = (location.hash || "#/").replace(/^#/, "");
@@ -47,32 +33,33 @@ function phoneDigits() {
   return String(store.whatsapp || "").replace(/\D/g, "");
 }
 
+function phoneLabel() {
+  const digits = phoneDigits();
+  if (digits.length === 13 && digits.startsWith("55")) {
+    const local = digits.slice(2);
+    return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  }
+  return store.whatsapp;
+}
+
 function productById(id) {
   return state.products.find((product) => product.id === id) || null;
 }
 
-function cartCount() {
-  return state.cart.reduce((sum, line) => sum + line.qty, 0);
+function buyMessage(product, qty = 1) {
+  const stock = Number(product.stock) || 0;
+  if (stock <= 0) return `Olá, Goldpack! Quero saber quando chegar: ${product.name}.`;
+  const amount = qty > 1 ? `${qty} unidades de ` : "";
+  return `Olá, Goldpack! Quero comprar ${amount}${product.name} (${money(product.price)}).`;
 }
 
-function cartDetailed() {
-  return state.cart
-    .map((line) => {
-      const product = productById(line.id);
-      if (!product) return null;
-      const qty = Math.min(line.qty, Math.max(0, Number(product.stock) || 0) || line.qty);
-      return { ...line, qty, product, total: qty * Number(product.price || 0) };
-    })
-    .filter(Boolean);
-}
-
-function showToast(message) {
-  state.toast = message;
-  clearTimeout(state.toastTimer);
-  state.toastTimer = setTimeout(() => {
-    state.toast = "";
-    render();
-  }, 2200);
+function hideBoot() {
+  const boot = document.getElementById("boot");
+  if (!boot || boot.dataset.done) return;
+  boot.dataset.done = "1";
+  const wait = Math.max(0, 900 - (Date.now() - bootStarted));
+  setTimeout(() => boot.classList.add("is-done"), wait);
+  setTimeout(() => boot.remove(), wait + 450);
 }
 
 function initials(name) {
@@ -137,7 +124,7 @@ function render() {
   }
   document.title = titleFor(route);
   app.innerHTML = view(route);
-  document.body.classList.toggle("lock", state.cartOpen || state.menuOpen);
+  document.body.classList.toggle("lock", state.menuOpen);
   if (!focusId) return;
   const field = document.getElementById(focusId);
   if (!field) return;
@@ -168,9 +155,7 @@ function view(route) {
       ${route.name === "home" || !["catalog", "p", "contato"].includes(route.name) ? homeView() : ""}
     </main>
     ${footer()}
-    ${state.cartOpen ? cartDrawer() : ""}
     ${state.menuOpen ? menuDrawer() : ""}
-    ${state.toast ? `<div class="toast" role="status">${esc(state.toast)}</div>` : ""}
     ${phoneDigits() ? `<a class="wa" href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">${whatsappIcon()}</a>` : ""}
   `;
 }
@@ -196,20 +181,67 @@ function header(route) {
         </form>
         <div class="header-actions">
           <nav class="nav-desktop" aria-label="Principal">
-            <a href="#/">Início</a>
-            <a href="#/catalog">Catálogo</a>
-            <a href="#/contato">Contato</a>
+            ${navLinks()}
           </nav>
-          <button class="icon-btn" type="button" data-act="cart-open" aria-label="Abrir carrinho">
-            ${cartIcon()}
-            ${cartCount() ? `<span class="badge">${cartCount()}</span>` : ""}
-          </button>
+          <a class="btn btn-orange header-wa" href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener">WhatsApp</a>
           <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
         </div>
         </div>
+        ${bannerHtml()}
+        ${storeTabsHtml()}
       </div>
     </header>
   `;
+}
+
+function safeHref(value) {
+  const raw = String(value || "").trim();
+  if (safeUrl(raw)) return safeUrl(raw);
+  if (/^#\/[A-Za-z0-9/?=&%_.-]*$/.test(raw)) return raw;
+  if (/^\/[A-Za-z0-9/?=&%_.-]*$/.test(raw)) return raw;
+  return "";
+}
+
+function navLinks() {
+  const tabs = state.tabs.length
+    ? state.tabs
+    : [
+      { label: "Início", href: "#/" },
+      { label: "Catálogo", href: "#/catalog" },
+      { label: "Contato", href: "#/contato" },
+    ];
+  return tabs
+    .map((tab) => {
+      const href = safeHref(tab.href);
+      return href ? `<a href="${esc(href)}">${esc(tab.label)}</a>` : "";
+    })
+    .join("");
+}
+
+function storeTabsHtml() {
+  const links = state.tabs
+    .map((tab) => {
+      const href = safeHref(tab.href);
+      return href ? `<a href="${esc(href)}">${esc(tab.label)}</a>` : "";
+    })
+    .join("");
+  if (!links) return "";
+  return `<nav class="store-tabs" aria-label="Abas da loja">${links}</nav>`;
+}
+
+function bannerHtml() {
+  const items = state.banners.filter((banner) => safeUrl(banner.image_url));
+  if (!items.length) return "";
+  const index = ((state.bannerIndex % items.length) + items.length) % items.length;
+  const banner = items[index];
+  const image = safeUrl(banner.image_url);
+  const picture = `<img src="${esc(image)}" alt="${esc(banner.title || "Banner")}">`;
+  const href = safeHref(banner.link);
+  const linked = href ? `<a href="${esc(href)}">${picture}</a>` : picture;
+  const dots = items.length > 1
+    ? `<div class="banner-dots">${items.map((_, dot) => `<button type="button" class="${dot === index ? "on" : ""}" data-act="banner-go" data-i="${dot}" aria-label="Banner ${dot + 1}"></button>`).join("")}</div>`
+    : "";
+  return `<div class="promo-banner">${linked}${dots}</div>`;
 }
 
 function options(pairs, current) {
@@ -229,7 +261,7 @@ function homeView() {
     groups.get(key).push(product);
   });
   const sections = [];
-  if (featured.length) sections.push(section("Destaques", "Escolhidos pela loja", featured.slice(0, 8), "#/catalog?sort=recent"));
+  if (featured.length) sections.push(section("Destaques", "Seleção da Goldpack", featured.slice(0, 8), "#/catalog?sort=recent"));
   if (sealed.length) sections.push(section("Lacrados", "Boxes, boosters e blisters", sealed, "#/catalog?kind=sealed"));
   let shown = 0;
   for (const [collection, items] of groups) {
@@ -244,24 +276,9 @@ function homeView() {
     ));
     shown += 1;
   }
-  if (accessories.length) sections.push(section("Acessórios", "Sleeves, pastas e o que a loja publicar", accessories, "#/catalog?kind=accessory"));
+  if (accessories.length) sections.push(section("Acessórios", "Sleeves, pastas e o que você precisa para jogar", accessories, "#/catalog?kind=accessory"));
 
   return `
-    <section class="hero wrap">
-      <div class="hero-copy">
-        <span class="kicker">Catálogo Goldpack</span>
-        <h1>Você encontra na Goldpack</h1>
-        <p>Lacrados, avulsos e acessórios. O estoque desta vitrine é o que a loja publicou.</p>
-        <div class="hero-actions">
-          <a class="btn btn-orange" href="#/catalog">Ver catálogo</a>
-          <a class="btn btn-ghost" href="#/contato">Fale com a loja</a>
-        </div>
-        ${state.status === "ready" ? `<p class="hero-count">${state.products.length} ${state.products.length === 1 ? "anúncio no catálogo" : "anúncios no catálogo"}</p>` : ""}
-      </div>
-      <div class="hero-brand">
-        <img src="assets/logo.png" alt="">
-      </div>
-    </section>
     <section class="benefits wrap" aria-label="Como comprar">
       ${benefits.map((item) => `<article class="benefit"><strong>${esc(item.title)}</strong><span>${esc(item.text)}</span></article>`).join("")}
     </section>
@@ -298,7 +315,7 @@ function card(product) {
           ${discount ? `<span class="off">-${discount}%</span>` : ""}
           <span class="stock ${stock > 0 ? "" : "out"}">${stock > 0 ? `${stock} un` : "Esgotado"}</span>
           ${product.language ? `<span class="lang">${esc(product.language)}</span>` : ""}
-          ${image ? `<img src="${esc(image)}" alt="">` : `<div class="ph"><b>${esc(initials(product.name))}</b><small>Sem foto</small></div>`}
+          ${image ? `<img src="${esc(image)}" alt="">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
         </div>
         ${product.tag ? `<span class="tag">${esc(product.tag)}</span>` : `<span class="tag alt">${esc(kindLabel(product.kind))}</span>`}
         <h3 class="name">${esc(product.name)}</h3>
@@ -314,26 +331,21 @@ function card(product) {
           </div>
         </div>
       </a>
-      ${stock > 0 ? `<button class="plus" type="button" data-act="add" data-id="${esc(product.id)}" aria-label="Adicionar ${esc(product.name)} ao carrinho">+</button>` : ""}
+      <a class="btn btn-orange buy-card" href="${whatsappLink(buyMessage(product))}" target="_blank" rel="noopener">Comprar</a>
     </article>
   `;
 }
 
 function statusBlock() {
-  if (state.status === "loading") {
-    return `<section class="section wrap"><div class="panel"><div class="spinner"></div><h2>Carregando catálogo</h2><p>Buscando os anúncios publicados.</p></div></section>`;
-  }
-  if (state.status === "unconfigured") {
-    return `<section class="section wrap"><div class="panel"><h2>Catálogo pronto para conectar</h2><p>Quando a URL e a chave anon do Supabase estiverem em js/config.js, os produtos publicados aparecem aqui. Nada é exibido antes disso.</p><a class="btn btn-orange" href="admin.html">Como conectar</a></div></section>`;
-  }
-  if (state.status === "error") {
-    return `<section class="section wrap"><div class="panel"><h2>Não foi possível carregar os produtos</h2><p>${esc(state.error)}</p></div></section>`;
+  if (state.status === "loading") return "";
+  if (state.status === "unconfigured" || state.status === "error") {
+    return `<section class="section wrap"><div class="panel"><h2>Catálogo em atualização</h2><p>Não conseguimos mostrar os produtos agora. Chame a Goldpack no WhatsApp que a gente te ajuda.</p>${phoneDigits() ? `<a class="btn btn-orange" href="${whatsappLink("Olá, Goldpack! O catálogo não abriu aqui. Podem me ajudar?")}">Falar no WhatsApp</a>` : ""}</div></section>`;
   }
   return "";
 }
 
 function emptyCatalog() {
-  return `<section class="section wrap"><div class="panel"><h2>Nenhum produto publicado</h2><p>Esta vitrine só mostra o que for cadastrado no painel. Inclua lacrados, avulsos e acessórios por lá.</p><a class="btn btn-orange" href="admin.html">Abrir painel admin</a></div></section>`;
+  return `<section class="section wrap"><div class="panel"><h2>Novidades a caminho</h2><p>A vitrine está sendo atualizada. Enquanto isso, chame a Goldpack no WhatsApp e pergunte o que tem disponível.</p><a class="btn btn-orange" href="${whatsappLink("Olá, Goldpack! Quero ver o que tem disponível.")}">Falar no WhatsApp</a></div></section>`;
 }
 
 function catalogView(route) {
@@ -348,8 +360,8 @@ function catalogView(route) {
     </label>
   `;
   const statusLabel = state.status === "ready"
-    ? `${products.length} ${products.length === 1 ? "anúncio" : "anúncios"}`
-    : "Conecte o Supabase para publicar anúncios";
+    ? `${products.length} ${products.length === 1 ? "produto" : "produtos"}`
+    : "Carregando produtos";
   return `
     <div class="wrap catalog-layout">
       <div class="catalog-top">
@@ -388,7 +400,7 @@ function catalogView(route) {
       <div class="catalog-results">
         ${state.status !== "ready" ? statusBlock() : ""}
         ${state.status === "ready" && !state.products.length ? emptyCatalog() : ""}
-        ${state.status === "ready" && state.products.length && !products.length ? `<div class="panel"><h2>Nenhum anúncio com esses filtros</h2><p>Tente outro nome, coleção ou limpe a busca.</p></div>` : ""}
+        ${state.status === "ready" && state.products.length && !products.length ? `<div class="panel"><h2>Nada encontrado</h2><p>Tente outro nome, coleção ou limpe a busca.</p></div>` : ""}
         ${products.length ? `<div class="grid">${products.map(card).join("")}</div>` : ""}
       </div>
     </div>
@@ -401,7 +413,7 @@ function productView(route) {
   }
   const product = productById(route.id);
   if (!product) {
-    return `<div class="wrap section"><div class="panel"><h2>Produto não encontrado</h2><p>Esse anúncio não está publicado.</p><a class="btn btn-orange" href="#/catalog">Voltar ao catálogo</a></div></div>`;
+    return `<div class="wrap section"><div class="panel"><h2>Produto não encontrado</h2><p>Esse item não está mais no catálogo.</p><a class="btn btn-orange" href="#/catalog">Voltar ao catálogo</a></div></div>`;
   }
   const image = safeUrl(product.image_url);
   const stock = Number(product.stock) || 0;
@@ -430,7 +442,7 @@ function productView(route) {
       </nav>
       <article class="product">
         <div class="gallery">
-          ${image ? `<img src="${esc(image)}" alt="${esc(product.name)}">` : `<div class="ph"><b>${esc(initials(product.name))}</b><small>Sem foto</small></div>`}
+          ${image ? `<img src="${esc(image)}" alt="${esc(product.name)}">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
         </div>
         <div>
           ${product.badge ? `<span class="tag">${esc(product.badge)}</span>` : ""}
@@ -449,10 +461,8 @@ function productView(route) {
                 <span>${qty}</span>
                 <button type="button" data-act="qty" data-dir="1" aria-label="Aumentar">+</button>
               </div>
-              <button class="btn btn-orange" type="button" data-act="add" data-id="${esc(product.id)}" data-qty="${qty}">Adicionar ao carrinho</button>
-            ` : (phoneDigits()
-              ? `<a class="btn btn-orange" href="${whatsappLink(`Olá, Goldpack! Quero saber quando chegar: ${product.name}`)}">Avise-me no WhatsApp</a>`
-              : `<span class="note">Esgotado.</span>`)}
+            ` : ""}
+            <a class="btn btn-orange" href="${whatsappLink(buyMessage(product, qty))}" target="_blank" rel="noopener">${stock > 0 ? "Comprar no WhatsApp" : "Avisar no WhatsApp"}</a>
           </div>
         </div>
       </article>
@@ -466,13 +476,13 @@ function contactView() {
     store.city ? ["Cidade", store.city] : null,
     store.hours ? ["Horário", store.hours] : null,
     store.email ? ["E-mail", store.email] : null,
-    phoneDigits() ? ["WhatsApp", store.whatsapp] : null,
+    phoneDigits() ? ["WhatsApp", phoneLabel()] : null,
   ].filter(Boolean);
   return `
     <div class="wrap">
       <section class="contact-card">
         <h1>Fale com a Goldpack</h1>
-        <p class="note">O pedido do carrinho também pode ser enviado por aqui, quando o WhatsApp da loja estiver ativo.</p>
+        <p class="note">Reserve um produto ou mande sua dúvida. A resposta chega no WhatsApp ${esc(phoneLabel())}.</p>
         ${lines.map(([label, value]) => `<div class="spec"><small>${esc(label)}</small><b>${esc(value)}</b></div>`).join("")}
         ${phoneDigits() ? `
           <form data-act="contact">
@@ -482,7 +492,7 @@ function contactView() {
             <textarea id="contact-message" name="message" placeholder="Escreva sua mensagem" required></textarea>
             <button class="btn btn-orange" type="submit">Enviar no WhatsApp</button>
           </form>
-        ` : `<p class="note">O WhatsApp da loja ainda não foi configurado.</p>`}
+        ` : `<p class="note">O WhatsApp da loja volta em instantes.</p>`}
       </section>
     </div>
   `;
@@ -507,61 +517,14 @@ function footer() {
           <a href="#/">Início</a>
           <a href="#/catalog">Catálogo</a>
           <a href="#/contato">Contato</a>
-          <a href="admin.html">Admin</a>
         </div>
         <div>
           <h2>Atendimento</h2>
-          ${contact.join("") || "<p>O pedido é confirmado pelo WhatsApp.</p>"}
+          ${contact.join("") || `<p>Chame no WhatsApp ${esc(phoneLabel())}.</p>`}
         </div>
       </div>
-      <div class="wrap legal">Imagens dos anúncios são as fotos enviadas pela loja. Goldpack · TCG, colecionáveis e games.</div>
+      <div class="wrap legal">Goldpack · TCG, colecionáveis e games.</div>
     </footer>
-  `;
-}
-
-function cartDrawer() {
-  const lines = cartDetailed();
-  const total = lines.reduce((sum, line) => sum + line.total, 0);
-  const message = [
-    "Olá, Goldpack! Quero fazer um pedido:",
-    "",
-    ...lines.map((line) => `• ${line.qty}x ${line.product.name} — ${money(line.total)}`),
-    "",
-    `Total: ${money(total)}`,
-  ].join("\n");
-  return `
-    <div class="drawer-back" data-act="cart-close"></div>
-    <aside class="drawer" role="dialog" aria-label="Carrinho">
-      <header class="drawer-head">
-        <h2>Carrinho</h2>
-        <button class="close" type="button" data-act="cart-close" aria-label="Fechar carrinho">×</button>
-      </header>
-      <div class="cart-lines">
-        ${lines.length ? lines.map((line) => `
-          <article class="cart-line">
-            ${safeUrl(line.product.image_url) ? `<img src="${esc(safeUrl(line.product.image_url))}" alt="">` : `<div class="thumb ph"><b>${esc(initials(line.product.name))}</b></div>`}
-            <div>
-              <strong>${esc(line.product.name)}</strong>
-              <p class="meta">${[line.product.condition, line.product.finish, line.product.language].filter(Boolean).map(esc).join(" · ")}</p>
-              <div class="stepper">
-                <button type="button" data-act="cart-qty" data-id="${esc(line.id)}" data-dir="-1" aria-label="Diminuir">−</button>
-                <span>${line.qty}</span>
-                <button type="button" data-act="cart-qty" data-id="${esc(line.id)}" data-dir="1" aria-label="Aumentar">+</button>
-              </div>
-              <strong>${money(line.total)}</strong>
-              <button class="btn btn-line" type="button" data-act="remove" data-id="${esc(line.id)}">Remover</button>
-            </div>
-          </article>
-        `).join("") : `<div class="panel"><h2>Seu carrinho está vazio</h2><p>Os produtos publicados no catálogo aparecem aqui.</p></div>`}
-      </div>
-      <div class="cart-foot">
-        <div class="total"><span>Total</span><span>${money(total)}</span></div>
-        <p class="note">Frete e pagamento são combinados na confirmação.</p>
-        ${lines.length && phoneDigits()
-          ? `<a class="btn btn-orange" href="${whatsappLink(message)}" target="_blank" rel="noopener">Finalizar no WhatsApp</a>`
-          : `<span class="btn btn-orange disabled">${lines.length ? "WhatsApp da loja ainda não configurado" : "Carrinho vazio"}</span>`}
-      </div>
-    </aside>
   `;
 }
 
@@ -573,23 +536,14 @@ function menuDrawer() {
         <strong>Menu</strong>
         <button class="close" type="button" data-act="menu-close" aria-label="Fechar menu">×</button>
       </header>
-      <a href="#/">Início</a>
-      <a href="#/catalog">Catálogo</a>
-      <a href="#/catalog?kind=sealed">Lacrados</a>
-      <a href="#/catalog?kind=single">Avulsos</a>
-      <a href="#/catalog?kind=accessory">Acessórios</a>
-      <a href="#/contato">Contato</a>
-      <a href="admin.html">Admin</a>
+      ${navLinks()}
+      <a href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener">WhatsApp ${esc(phoneLabel())}</a>
     </nav>
   `;
 }
 
 function searchIcon() {
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>`;
-}
-
-function cartIcon() {
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 6h15l-1.5 9h-12z"></path><path d="M6 6L5 3H2"></path><circle cx="9" cy="20" r="1.4"></circle><circle cx="18" cy="20" r="1.4"></circle></svg>`;
 }
 
 function menuIcon() {
@@ -602,42 +556,6 @@ function whatsappIcon() {
 
 function whatsappLink(message) {
   return `https://wa.me/${phoneDigits()}?text=${encodeURIComponent(message)}`;
-}
-
-function addToCart(id, qty) {
-  const product = productById(id);
-  if (!product) return;
-  const stock = Number(product.stock) || 0;
-  if (stock <= 0) {
-    showToast("Produto esgotado.");
-    render();
-    return;
-  }
-  const line = state.cart.find((item) => item.id === id);
-  const next = (line?.qty || 0) + qty;
-  if (next > stock) {
-    showToast("Quantidade maior que o estoque.");
-    render();
-    return;
-  }
-  if (line) line.qty = next;
-  else state.cart.push({ id, qty });
-  saveCart();
-  showToast("Adicionado ao carrinho.");
-  state.cartOpen = true;
-  render();
-}
-
-function setCartQty(id, dir) {
-  const product = productById(id);
-  const line = state.cart.find((item) => item.id === id);
-  if (!line) return;
-  const stock = Number(product?.stock) || line.qty;
-  line.qty += dir;
-  if (line.qty <= 0) state.cart = state.cart.filter((item) => item.id !== id);
-  else line.qty = Math.min(line.qty, stock);
-  saveCart();
-  render();
 }
 
 function writeQuery(mutate) {
@@ -659,22 +577,16 @@ function bind() {
     const target = event.target.closest("[data-act]");
     if (!target || target.tagName === "FORM") return;
     const act = target.dataset.act;
-    if (act === "cart-open") state.cartOpen = true;
-    else if (act === "cart-close") state.cartOpen = false;
-    else if (act === "menu-open") state.menuOpen = true;
+    if (act === "menu-open") state.menuOpen = true;
     else if (act === "menu-close") state.menuOpen = false;
     else if (act === "filters") state.filtersOpen = !state.filtersOpen;
-    else if (act === "add") addToCart(target.dataset.id, Number(target.dataset.qty) || 1);
-    else if (act === "remove") {
-      state.cart = state.cart.filter((line) => line.id !== target.dataset.id);
-      saveCart();
-    } else if (act === "cart-qty") setCartQty(target.dataset.id, Number(target.dataset.dir) || 0);
     else if (act === "qty") {
       const product = productById(currentRoute().id);
       const stock = Math.max(1, Number(product?.stock) || 1);
       state.qty = Math.min(stock, Math.max(1, state.qty + Number(target.dataset.dir)));
-    } else return;
-    if (act !== "add") render();
+    } else if (act === "banner-go") state.bannerIndex = Number(target.dataset.i) || 0;
+    else return;
+    render();
   });
 
   document.addEventListener("submit", (event) => {
@@ -707,8 +619,7 @@ function bind() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      state.cartOpen = false;
+    if (event.key === "Escape" && state.menuOpen) {
       state.menuOpen = false;
       render();
     }
@@ -737,12 +648,49 @@ async function loadProducts() {
     if (error) throw error;
     state.products = data || [];
     state.status = "ready";
+    await loadStorefrontExtras(supabase);
   } catch (error) {
     state.status = "error";
     state.error = friendlyError(error);
   }
 }
 
+async function loadStorefrontExtras(supabase) {
+  const banners = await supabase.from("banners").select("*").eq("active", true).order("sort_order", { ascending: true });
+  if (!banners.error) state.banners = banners.data || [];
+  const tabs = await supabase.from("store_tabs").select("*").eq("active", true).order("sort_order", { ascending: true });
+  if (!tabs.error) state.tabs = tabs.data || [];
+}
+
+async function recordVisit() {
+  if (!isConfigured() || sessionStorage.getItem("goldpack-visit")) return;
+  sessionStorage.setItem("goldpack-visit", "1");
+  try {
+    const supabase = await getClient();
+    let ip = "";
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const payload = await response.json();
+      ip = String(payload.ip || "");
+    } catch {
+      ip = "";
+    }
+    const { error } = await supabase.from("visits").insert({
+      ip,
+      path: `${location.pathname}${location.hash || ""}`,
+      referrer: document.referrer || "",
+      user_agent: navigator.userAgent || "",
+    });
+    if (error) throw error;
+  } catch {
+    sessionStorage.removeItem("goldpack-visit");
+  }
+}
+
 bind();
 render();
-loadProducts().then(render);
+loadProducts().then(() => {
+  render();
+  hideBoot();
+  recordVisit();
+});

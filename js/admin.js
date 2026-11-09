@@ -26,6 +26,10 @@ const state = {
   products: [],
   error: "",
   notice: "",
+  banners: [],
+  tabs: [],
+  visits: [],
+  extraError: "",
   q: "",
   editor: null,
   busy: false,
@@ -107,7 +111,7 @@ function frame(content) {
 }
 
 function logo() {
-  return `<img src="assets/logo.png" alt="Goldpack">`;
+  return `<img src="/assets/logo.png" alt="Goldpack">`;
 }
 
 function setup() {
@@ -128,7 +132,7 @@ function setup() {
       <code>${esc(ADMIN_SQL)}</code>
       <div class="row-actions">
         <button class="btn btn-orange" type="button" data-act="copy-sql">Copiar comando</button>
-        <a class="btn btn-line" href="index.html">Ver a loja</a>
+        <a class="btn btn-line" href="/">Ver a loja</a>
       </div>
       <p class="note">Se o login disser que o e-mail não foi confirmado, confirme o usuário no Supabase ou desative “Confirm email” em Authentication → Providers → Email.</p>
     </section>
@@ -149,7 +153,7 @@ function login() {
         <input name="password" type="password" autocomplete="current-password" required>
       </label>
       <button class="btn btn-orange" type="submit" ${state.busy ? "disabled" : ""}>${state.busy ? "Entrando…" : "Entrar"}</button>
-      <a class="btn btn-line" href="index.html">Voltar à loja</a>
+      <a class="btn btn-line" href="/">Voltar à loja</a>
     </form>
   `;
 }
@@ -167,41 +171,203 @@ function denied() {
   `;
 }
 
+const SECTIONS = [
+  ["visao", "Visão geral"],
+  ["produtos", "Produtos"],
+  ["estoque", "Estoque"],
+  ["banners", "Banners"],
+  ["abas", "Abas"],
+  ["visitas", "Visitas"],
+];
+
+function currentSection() {
+  const name = (location.hash || "#visao").replace(/^#/, "").split("?")[0];
+  return SECTIONS.some(([id]) => id === name) ? name : "visao";
+}
+
 function appShell() {
-  const q = state.q.trim().toLowerCase();
-  const products = state.products.filter((product) => {
-    if (!q) return true;
-    return [product.name, product.game, product.collection, product.card_number].join(" ").toLowerCase().includes(q);
-  });
+  const section = currentSection();
   return `
     <div class="shell">
       <aside class="side">
-        <a href="index.html">${logo()}</a>
-        <div>
-          <strong>Produtos</strong>
-          <p>${esc(state.session?.user?.email || "")}</p>
-        </div>
+        <a href="/">${logo()}</a>
+        <nav class="side-nav" aria-label="Seções do painel">
+          ${SECTIONS.map(([id, label]) => `<a class="${id === section ? "on" : ""}" href="#${id}">${label}</a>`).join("")}
+        </nav>
+        <p>${esc(state.session?.user?.email || "")}</p>
         <button class="btn btn-orange" type="button" data-act="logout">Sair</button>
       </aside>
       <section class="workspace">
-        <div class="workspace-head">
-          <div>
-            <h1>Produtos</h1>
-            <p class="note">${state.products.length} no banco · só os publicados aparecem na loja</p>
-          </div>
-          <button class="btn btn-orange" type="button" data-act="new">Novo produto</button>
-        </div>
         ${state.notice ? `<p class="ok">${esc(state.notice)}</p>` : ""}
         ${state.error ? `<p class="alert" role="alert">${esc(state.error)}</p>` : ""}
-        <div class="toolbar">
-          <input id="admin-q" type="search" placeholder="Buscar no estoque" value="${esc(state.q)}">
-        </div>
-        <div class="list">
-          ${products.length ? products.map(row).join("") : `<div class="panel"><h2>${state.products.length ? "Nenhum produto com essa busca" : "Nenhum produto ainda"}</h2><p>${state.products.length ? "Tente outro termo." : "Use Novo produto para publicar o primeiro anúncio."}</p></div>`}
-        </div>
+        ${state.extraError ? `<p class="note">${esc(state.extraError)}</p>` : ""}
+        ${section === "visao" ? overview() : ""}
+        ${section === "produtos" ? productsPanel() : ""}
+        ${section === "estoque" ? stockPanel() : ""}
+        ${section === "banners" ? bannersPanel() : ""}
+        ${section === "abas" ? tabsPanel() : ""}
+        ${section === "visitas" ? visitsPanel() : ""}
       </section>
     </div>
     ${state.editor ? editor(state.editor) : ""}
+  `;
+}
+
+function filteredProducts() {
+  const q = state.q.trim().toLowerCase();
+  return state.products.filter((product) => {
+    if (!q) return true;
+    return [product.name, product.game, product.collection, product.card_number].join(" ").toLowerCase().includes(q);
+  });
+}
+
+function productsPanel() {
+  const products = filteredProducts();
+  return `
+    <div class="workspace-head">
+      <div>
+        <h1>Produtos</h1>
+        <p class="note">${state.products.length} no banco · só os publicados aparecem na loja</p>
+      </div>
+      <button class="btn btn-orange" type="button" data-act="new">Novo produto</button>
+    </div>
+    <div class="toolbar">
+      <input id="admin-q" type="search" placeholder="Buscar produto" value="${esc(state.q)}">
+    </div>
+    <div class="list">
+      ${products.length ? products.map(row).join("") : `<div class="panel"><h2>${state.products.length ? "Nenhum produto com essa busca" : "Nenhum produto ainda"}</h2><p>${state.products.length ? "Tente outro termo." : "Use Novo produto para publicar o primeiro anúncio."}</p></div>`}
+    </div>
+  `;
+}
+
+function when(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("pt-BR");
+}
+
+function overview() {
+  const units = state.products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
+  const published = state.products.filter((product) => product.active).length;
+  const out = state.products.filter((product) => (Number(product.stock) || 0) <= 0).length;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const today = state.visits.filter((visit) => new Date(visit.created_at) >= start).length;
+  const cards = [
+    ["Produtos", state.products.length],
+    ["Publicados", published],
+    ["Unidades", units],
+    ["Esgotados", out],
+    ["Visitas hoje", today],
+    ["Visitas", state.visits.length],
+  ];
+  return `
+    <div class="workspace-head"><h1>Visão geral</h1></div>
+    <div class="stats">${cards.map(([label, value]) => `<article class="stat"><span>${label}</span><b>${value}</b></article>`).join("")}</div>
+    <h2>Últimas visitas</h2>
+    ${state.visits.slice(0, 5).map((visit) => `<p class="note">${esc(when(visit.created_at))} · ${esc(visit.ip || "IP não identificado")} · ${esc(visit.path || "/")}</p>`).join("") || `<p class="note">Nenhuma visita ainda.</p>`}
+  `;
+}
+
+function stockPanel() {
+  const products = filteredProducts();
+  return `
+    <div class="workspace-head">
+      <div>
+        <h1>Estoque</h1>
+        <p class="note">Ajuste a quantidade de cada anúncio.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <input id="admin-q" type="search" placeholder="Buscar no estoque" value="${esc(state.q)}">
+    </div>
+    <div class="list">
+      ${products.length ? products.map((product) => `
+        <article class="item plain">
+          <div>
+            <h2>${esc(product.name)}</h2>
+            <p class="meta">${(Number(product.stock) || 0) <= 0 ? "Esgotado" : `${Number(product.stock)} un`}</p>
+          </div>
+          <div class="switches">
+            <input class="stock-input" data-stock="${esc(product.id)}" type="number" min="0" step="1" value="${Number(product.stock) || 0}">
+            <button class="tiny" type="button" data-act="stock-save" data-id="${esc(product.id)}">Salvar</button>
+          </div>
+        </article>
+      `).join("") : `<div class="panel"><h2>Nenhum produto no estoque</h2></div>`}
+    </div>
+  `;
+}
+
+function bannersPanel() {
+  return `
+    <div class="workspace-head">
+      <div>
+        <h1>Banners</h1>
+        <p class="note">Aparecem debaixo da busca na loja.</p>
+      </div>
+      <button class="btn btn-orange" type="button" data-act="new-banner">Novo banner</button>
+    </div>
+    <div class="list">
+      ${state.banners.length ? state.banners.map((banner) => `
+        <article class="item">
+          ${safeUrl(banner.image_url) ? `<img src="${esc(safeUrl(banner.image_url))}" alt="">` : `<div class="thumb ph"><b>B</b></div>`}
+          <div>
+            <h2>${esc(banner.title || "Sem título")}</h2>
+            <p class="meta">${banner.active ? "Na loja" : "Oculto"} · ordem ${Number(banner.sort_order) || 0}</p>
+          </div>
+          <div class="switches">
+            <button class="tiny" type="button" data-act="edit-banner" data-id="${esc(banner.id)}">Editar</button>
+            <button class="danger tiny" type="button" data-act="delete-banner" data-id="${esc(banner.id)}">Excluir</button>
+          </div>
+        </article>
+      `).join("") : `<div class="panel"><h2>Nenhum banner</h2><p>A faixa só aparece depois que você publicar uma imagem.</p></div>`}
+    </div>
+  `;
+}
+
+function tabsPanel() {
+  return `
+    <div class="workspace-head">
+      <div>
+        <h1>Abas</h1>
+        <p class="note">Os atalhos que aparecem na loja, abaixo do banner.</p>
+      </div>
+      <button class="btn btn-orange" type="button" data-act="new-tab">Nova aba</button>
+    </div>
+    <div class="list">
+      ${state.tabs.length ? state.tabs.map((tab) => `
+        <article class="item plain">
+          <div>
+            <h2>${esc(tab.label)}</h2>
+            <p class="meta">${esc(tab.href)} · ${tab.active ? "Visível" : "Oculta"}</p>
+          </div>
+          <div class="switches">
+            <button class="tiny" type="button" data-act="edit-tab" data-id="${esc(tab.id)}">Editar</button>
+            <button class="danger tiny" type="button" data-act="delete-tab" data-id="${esc(tab.id)}">Excluir</button>
+          </div>
+        </article>
+      `).join("") : `<div class="panel"><h2>Nenhuma aba</h2><p>Crie atalhos como Catálogo, Lacrados ou Contato.</p></div>`}
+    </div>
+  `;
+}
+
+function visitsPanel() {
+  return `
+    <div class="workspace-head">
+      <div>
+        <h1>Visitas</h1>
+        <p class="note">${state.visits.length} registros de quem entrou na loja.</p>
+      </div>
+    </div>
+    <div class="list">
+      ${state.visits.length ? state.visits.map((visit) => `
+        <article class="item visit">
+          <div>
+            <h2>${esc(visit.ip || "IP não identificado")}</h2>
+            <p class="meta">${esc(when(visit.created_at))} · ${esc(visit.path || "/")} ${visit.referrer ? `· veio de ${esc(visit.referrer)}` : ""}</p>
+          </div>
+        </article>
+      `).join("") : `<div class="panel"><h2>Nenhuma visita ainda</h2><p>Cada pessoa que abrir a loja entra aqui com IP, página e horário.</p></div>`}
+    </div>
   `;
 }
 
@@ -227,7 +393,60 @@ function initials(name) {
   return String(name || "GP").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
 }
 
+function bannerEditor(form) {
+  const preview = safeUrl(form.image_url);
+  return `
+    <div class="editor-back" data-act="close-editor"></div>
+    <form class="editor stack" data-act="save">
+      <div class="workspace-head">
+        <h2>${form.id ? "Editar banner" : "Novo banner"}</h2>
+        <button class="close" type="button" data-act="close-editor" aria-label="Fechar">×</button>
+      </div>
+      <label class="field">Título
+        <input name="title" value="${esc(form.title)}" placeholder="Opcional, só para você reconhecer">
+      </label>
+      <label class="field">Link
+        <input name="link" value="${esc(form.link)}" placeholder="https:// ou #/catalog">
+      </label>
+      <label class="field">Ordem
+        <input name="sort_order" type="number" step="1" value="${Number(form.sort_order) || 0}">
+      </label>
+      <label class="field">Imagem
+        <input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp">
+      </label>
+      <img id="image-preview" alt="" src="${esc(preview)}" ${preview ? "" : "hidden"}>
+      <label class="check"><input name="active" type="checkbox" ${form.active ? "checked" : ""}> Mostrar na loja</label>
+      <button class="btn btn-purple" type="submit" ${state.busy ? "disabled" : ""}>Salvar banner</button>
+    </form>
+  `;
+}
+
+function tabEditor(form) {
+  return `
+    <div class="editor-back" data-act="close-editor"></div>
+    <form class="editor stack" data-act="save">
+      <div class="workspace-head">
+        <h2>${form.id ? "Editar aba" : "Nova aba"}</h2>
+        <button class="close" type="button" data-act="close-editor" aria-label="Fechar">×</button>
+      </div>
+      <label class="field">Nome
+        <input name="label" required value="${esc(form.label)}" placeholder="Lacrados">
+      </label>
+      <label class="field">Destino
+        <input name="href" required value="${esc(form.href)}" placeholder="#/catalog">
+      </label>
+      <label class="field">Ordem
+        <input name="sort_order" type="number" step="1" value="${Number(form.sort_order) || 0}">
+      </label>
+      <label class="check"><input name="active" type="checkbox" ${form.active ? "checked" : ""}> Mostrar na loja</label>
+      <button class="btn btn-purple" type="submit" ${state.busy ? "disabled" : ""}>Salvar aba</button>
+    </form>
+  `;
+}
+
 function editor(form) {
+  if (form.type === "banner") return bannerEditor(form);
+  if (form.type === "tab") return tabEditor(form);
   const preview = safeUrl(form.image_url);
   return `
     <div class="editor-back" data-act="close-editor"></div>
@@ -379,6 +598,16 @@ async function loadProducts(supabase) {
     .order("created_at", { ascending: false });
   if (error) throw error;
   state.products = data || [];
+  const [banners, tabs, visits] = await Promise.all([
+    supabase.from("banners").select("*").order("sort_order", { ascending: true }),
+    supabase.from("store_tabs").select("*").order("sort_order", { ascending: true }),
+    supabase.from("visits").select("*").order("created_at", { ascending: false }).limit(300),
+  ]);
+  state.banners = banners.error ? [] : banners.data || [];
+  state.tabs = tabs.error ? [] : tabs.data || [];
+  state.visits = visits.error ? [] : visits.data || [];
+  const missing = banners.error || tabs.error || visits.error;
+  state.extraError = missing ? friendlyError(missing) : "";
 }
 
 function readForm(form) {
@@ -439,7 +668,108 @@ async function uploadImage(supabase, file) {
   return data.publicUrl;
 }
 
+async function saveBanner(formElement) {
+  const data = new FormData(formElement);
+  const file = data.get("image");
+  const banner = {
+    id: state.editor?.id || "",
+    type: "banner",
+    title: String(data.get("title") || "").trim(),
+    link: String(data.get("link") || "").trim(),
+    sort_order: Number(data.get("sort_order")) || 0,
+    image_url: state.editor?.image_url || "",
+    active: data.get("active") === "on",
+  };
+  if (file instanceof File && file.size) {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      state.error = "A foto precisa ser PNG, JPG ou WebP.";
+      render();
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      state.error = "A foto passa de 5 MB.";
+      render();
+      return;
+    }
+  }
+  state.busy = true;
+  state.error = "";
+  state.editor = banner;
+  render();
+  try {
+    const supabase = await client();
+    if (file instanceof File && file.size) banner.image_url = await uploadImage(supabase, file);
+    if (!safeUrl(banner.image_url)) throw new Error("Envie a imagem do banner.");
+    const row = {
+      title: banner.title,
+      link: banner.link,
+      sort_order: banner.sort_order,
+      image_url: banner.image_url,
+      active: banner.active,
+    };
+    const query = banner.id
+      ? supabase.from("banners").update(row).eq("id", banner.id)
+      : supabase.from("banners").insert(row);
+    const { error } = await query;
+    if (error) throw error;
+    await loadProducts(supabase);
+    state.editor = null;
+    state.notice = "Banner salvo.";
+  } catch (error) {
+    state.error = friendlyError(error);
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+async function saveTab(formElement) {
+  const data = new FormData(formElement);
+  const tab = {
+    id: state.editor?.id || "",
+    type: "tab",
+    label: String(data.get("label") || "").trim(),
+    href: String(data.get("href") || "").trim(),
+    sort_order: Number(data.get("sort_order")) || 0,
+    active: data.get("active") === "on",
+  };
+  if (!tab.label || !tab.href) {
+    state.error = "A aba precisa de nome e destino.";
+    state.editor = tab;
+    render();
+    return;
+  }
+  state.busy = true;
+  state.error = "";
+  state.editor = tab;
+  render();
+  try {
+    const supabase = await client();
+    const row = {
+      label: tab.label,
+      href: tab.href,
+      sort_order: tab.sort_order,
+      active: tab.active,
+    };
+    const query = tab.id
+      ? supabase.from("store_tabs").update(row).eq("id", tab.id)
+      : supabase.from("store_tabs").insert(row);
+    const { error } = await query;
+    if (error) throw error;
+    await loadProducts(supabase);
+    state.editor = null;
+    state.notice = "Aba salva.";
+  } catch (error) {
+    state.error = friendlyError(error);
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
 async function save(formElement) {
+  if (state.editor?.type === "banner") return saveBanner(formElement);
+  if (state.editor?.type === "tab") return saveTab(formElement);
   const form = readForm(formElement);
   const problem = validate(form);
   const remembered = { ...form };
@@ -530,6 +860,43 @@ async function deleteProduct(id) {
   render();
 }
 
+async function saveStock(id) {
+  const input = document.querySelector(`[data-stock="${CSS.escape(id)}"]`);
+  const stock = Math.floor(Number(input?.value));
+  if (!Number.isInteger(stock) || stock < 0) {
+    state.error = "O estoque precisa ser um número inteiro.";
+    state.notice = "";
+    render();
+    return;
+  }
+  try {
+    const supabase = await client();
+    const { error } = await supabase.from("products").update({ stock }).eq("id", id);
+    if (error) throw error;
+    await loadProducts(supabase);
+    state.notice = "Estoque atualizado.";
+    state.error = "";
+  } catch (error) {
+    state.error = friendlyError(error);
+  }
+  render();
+}
+
+async function removeRow(table, id, notice) {
+  if (!id || !confirm("Excluir este item?")) return;
+  try {
+    const supabase = await client();
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) throw error;
+    await loadProducts(supabase);
+    state.notice = notice;
+    state.error = "";
+  } catch (error) {
+    state.error = friendlyError(error);
+  }
+  render();
+}
+
 function bind() {
   document.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-act]");
@@ -558,6 +925,44 @@ function bind() {
       state.editor = blankForm();
       state.error = "";
       render();
+      return;
+    }
+    if (act === "new-banner") {
+      state.editor = { type: "banner", id: "", title: "", image_url: "", link: "", sort_order: state.banners.length, active: true };
+      state.error = "";
+      render();
+      return;
+    }
+    if (act === "edit-banner") {
+      const banner = state.banners.find((item) => item.id === target.dataset.id);
+      if (banner) state.editor = { type: "banner", ...banner };
+      state.error = "";
+      render();
+      return;
+    }
+    if (act === "delete-banner") {
+      await removeRow("banners", target.dataset.id, "Banner excluído.");
+      return;
+    }
+    if (act === "new-tab") {
+      state.editor = { type: "tab", id: "", label: "", href: "#/", sort_order: state.tabs.length, active: true };
+      state.error = "";
+      render();
+      return;
+    }
+    if (act === "edit-tab") {
+      const tab = state.tabs.find((item) => item.id === target.dataset.id);
+      if (tab) state.editor = { type: "tab", ...tab };
+      state.error = "";
+      render();
+      return;
+    }
+    if (act === "delete-tab") {
+      await removeRow("store_tabs", target.dataset.id, "Aba excluída.");
+      return;
+    }
+    if (act === "stock-save") {
+      await saveStock(target.dataset.id);
       return;
     }
     if (act === "edit") {
@@ -642,6 +1047,10 @@ function bind() {
         condition.value = AUTO_CONDITION[event.target.value] || "NM";
       }
     }
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (state.mode === "app" && !state.editor) render();
   });
 }
 

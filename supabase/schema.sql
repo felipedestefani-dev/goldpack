@@ -149,3 +149,87 @@ create policy "admins delete product images"
   for delete
   to authenticated
   using (bucket_id = 'products' and public.is_admin());
+
+create table if not exists public.banners (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  image_url text not null default '',
+  link text not null default '',
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.store_tabs (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  href text not null default '#/',
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.visits (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  ip text not null default '',
+  path text not null default '',
+  referrer text not null default '',
+  user_agent text not null default ''
+);
+
+alter table public.banners enable row level security;
+alter table public.store_tabs enable row level security;
+alter table public.visits enable row level security;
+
+drop policy if exists "public reads active banners" on public.banners;
+create policy "public reads active banners"
+  on public.banners for select to anon, authenticated
+  using (active = true or public.is_admin());
+
+drop policy if exists "admins write banners" on public.banners;
+create policy "admins write banners"
+  on public.banners for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "public reads active tabs" on public.store_tabs;
+create policy "public reads active tabs"
+  on public.store_tabs for select to anon, authenticated
+  using (active = true or public.is_admin());
+
+drop policy if exists "admins write tabs" on public.store_tabs;
+create policy "admins write tabs"
+  on public.store_tabs for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "anyone inserts a visit" on public.visits;
+create policy "anyone inserts a visit"
+  on public.visits for insert to anon, authenticated
+  with check (true);
+
+drop policy if exists "admins read visits" on public.visits;
+create policy "admins read visits"
+  on public.visits for select to authenticated
+  using (public.is_admin());
+
+grant select on public.banners to anon, authenticated;
+grant insert, update, delete on public.banners to authenticated;
+grant select on public.store_tabs to anon, authenticated;
+grant insert, update, delete on public.store_tabs to authenticated;
+grant insert on public.visits to anon, authenticated;
+grant select on public.visits to authenticated;
+
+insert into public.store_tabs (label, href, sort_order)
+select seed.label, seed.href, seed.sort_order
+from (
+  values
+    ('Início', '#/', 0),
+    ('Catálogo', '#/catalog', 1),
+    ('Lacrados', '#/catalog?kind=sealed', 2),
+    ('Avulsos', '#/catalog?kind=single', 3),
+    ('Acessórios', '#/catalog?kind=accessory', 4),
+    ('Contato', '#/contato', 5)
+) as seed(label, href, sort_order)
+where not exists (select 1 from public.store_tabs);
