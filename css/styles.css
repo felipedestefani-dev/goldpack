@@ -263,6 +263,7 @@ p { margin: 0; }
   box-shadow: var(--shadow);
 }
 .dd-list[hidden] { display: none; }
+.dd-list, .scope-list { animation: menu-pop .16s ease-out; transform-origin: top; }
 
 .confirm-back {
   position: fixed;
@@ -347,7 +348,9 @@ p { margin: 0; }
   text-decoration: none;
   border: 0;
   font-weight: 800;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
 }
+.btn:active { transform: scale(0.97); }
 .btn-orange { background: var(--cta-bg); color: var(--cta-ink); }
 .btn-orange:hover { background: var(--orange-deep); }
 .btn-purple { background: var(--purple); color: white; }
@@ -506,7 +509,41 @@ p { margin: 0; }
   display: grid;
   place-items: center;
 }
-.visual img { position: absolute; inset: 0; width: 100%; height: 100%; padding: 8px; object-fit: contain; }
+.visual img { position: absolute; inset: 0; width: 100%; height: 100%; padding: 8px; object-fit: contain; transition: transform .35s ease; }
+.pcard:hover .visual img { transform: scale(1.05); }
+.pcard .visual::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: -30%;
+  bottom: -30%;
+  left: -70%;
+  width: 55%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0.05) 70%, transparent 100%);
+  transform: translateX(-30%) rotate(8deg);
+  animation: card-shine 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes card-shine {
+  0%, 18% { transform: translateX(-30%) rotate(8deg); }
+  62%, 100% { transform: translateX(320%) rotate(8deg); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade { from { opacity: 0; } }
+.enter .hero-zone { animation: fade .5s ease backwards; }
+.enter :is(.section-title, .catalog-top, .filters, .product > *, .contact-card, .policy, .panel, .empty-state, .crumbs) { animation: rise .45s ease backwards; }
+.enter .pcard { animation: rise .45s ease backwards; }
+.enter .pcard:nth-child(2) { animation-delay: 50ms; }
+.enter .pcard:nth-child(3) { animation-delay: 100ms; }
+.enter .pcard:nth-child(4) { animation-delay: 150ms; }
+.enter .pcard:nth-child(5) { animation-delay: 200ms; }
+.enter .pcard:nth-child(6) { animation-delay: 250ms; }
+.enter .pcard:nth-child(7) { animation-delay: 300ms; }
+.enter .pcard:nth-child(n+8) { animation-delay: 350ms; }
+.enter .product > :nth-child(2) { animation-delay: 80ms; }
 .ph {
   display: grid;
   justify-items: center;
@@ -860,7 +897,10 @@ p { margin: 0; }
   .hero-arrow svg { width: 22px; height: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .spinner, .boot-sprite, .menu { animation: none; }
+  .spinner, .boot-sprite, .menu, .dd-list, .scope-list, .confirm, .confirm-back { animation: none; }
+  .enter *, .enter .pcard { animation: none !important; }
+  .pcard .visual::after { display: none; }
+  .pcard:hover .visual img, .btn:active { transform: none; }
   .hero-dot.is-active { width: 28px; height: 10px; background: var(--orange); }
   .hero-dot.is-active .pl { display: none; }
   html { scroll-behavior: auto; }

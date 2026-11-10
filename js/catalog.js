@@ -124,6 +124,8 @@ function uniqueValues(key) {
   ));
 }
 
+let lastPageKey = "";
+
 function render() {
   const active = document.activeElement;
   const focusId = active?.id || "";
@@ -137,6 +139,9 @@ function render() {
   document.title = titleFor(route);
   app.innerHTML = view(route);
   enhanceSelects(app);
+  const pageKey = `${location.hash}|${state.status}`;
+  if (pageKey !== lastPageKey) app.querySelector("main")?.classList.add("enter");
+  lastPageKey = pageKey;
   document.body.classList.toggle("lock", state.menuOpen);
   if (state.menuOpen) placeMenu();
   if (!focusId) return;
