@@ -160,8 +160,6 @@ create table if not exists public.banners (
   created_at timestamptz not null default now()
 );
 
-alter table public.banners add column if not exists image_mobile_url text not null default '';
-
 create table if not exists public.store_tabs (
   id uuid primary key default gen_random_uuid(),
   label text not null,

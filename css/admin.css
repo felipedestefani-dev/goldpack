@@ -105,6 +105,8 @@ body.admin {
   box-shadow: 0 0 0 3px rgba(240, 120, 22, 0.16);
 }
 .admin .field input::placeholder, .admin .field textarea::placeholder { color: #aaa39d; font-weight: 500; }
+.admin .field .dd-btn { border: 1.5px solid #e2dcd6; border-radius: 12px; padding: 11px 12px; font-size: 15px; }
+.admin .field .dd-btn:hover, .admin .field .dd-btn:focus-visible, .admin .field .dd.open .dd-btn { border-color: var(--orange); }
 .grid2, .grid3 { display: grid; gap: 12px; }
 .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -763,11 +765,6 @@ body.admin {
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .drop.banner-drop { display: grid; gap: 10px; }
 .banner-drop img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; border-radius: 12px; }
-.banner-drop.mobile { margin-top: 14px; }
-.banner-drop.mobile img { width: min(220px, 100%); aspect-ratio: 1; }
-.banner-drop .check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
-.banner-drop .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--orange); }
-
 /* Celular */
 @media (max-width: 1080px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }

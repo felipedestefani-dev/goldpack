@@ -1,6 +1,7 @@
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 import { LANGUAGES, esc, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
 import { cardDetails, collectionCode, loadSets, searchCards } from "./pokemon.js";
+import { confirmDialog, enhanceSelects } from "./ui.js";
 import { iconImg, tabIcon } from "./icons.js";
 
 const AUTO_CONDITION = { sealed: "Lacrado", single: "NM", accessory: "Novo" };
@@ -168,6 +169,7 @@ function render() {
   const start = focus?.selectionStart;
   const end = focus?.selectionEnd;
   app.innerHTML = layout();
+  enhanceSelects(app);
   document.body.classList.toggle("lock", Boolean(state.editor));
   if (state.notice) {
     clearTimeout(noticeTimer);
@@ -804,20 +806,13 @@ function toggleField(name, label, hint, checked) {
 
 function bannerEditor(form) {
   const preview = safeUrl(form.image_url);
-  const mobilePreview = safeUrl(form.image_mobile_url);
   return editorShell(form.id ? "Editar banner" : "Novo banner", `
     <fieldset class="fs">
       <legend>Imagem</legend>
       <div class="drop banner-drop">
         <img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}>
         <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
-        <p class="hint">Computador: 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB.</p>
-      </div>
-      <div class="drop banner-drop mobile">
-        <img id="mobile-preview" alt="" ${mobilePreview ? `src="${esc(mobilePreview)}"` : "hidden"}>
-        <label class="file-btn">${icon("image")}<span>Imagem do celular (opcional)</span><input id="mobile-file" name="image_mobile" type="file" accept="image/png,image/jpeg,image/webp"></label>
-        <p class="hint">Celular: 1080 × 1080 px (quadrado). Sem ela, o celular mostra a imagem do computador.</p>
-        ${mobilePreview ? `<label class="check"><input type="checkbox" name="remove_mobile"> Remover imagem do celular</label>` : ""}
+        <p class="hint">Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No celular as laterais são cortadas: deixe textos e logos nos 2000 px do centro.</p>
       </div>
     </fieldset>
     <fieldset class="fs">
@@ -1112,8 +1107,6 @@ function notifyStore(supabase) {
 async function saveBanner(formElement) {
   const data = new FormData(formElement);
   const file = data.get("image");
-  const mobileFile = data.get("image_mobile");
-  const hadMobile = Boolean(state.editor?.image_mobile_url);
   const banner = {
     id: state.editor?.id || "",
     type: "banner",
@@ -1121,18 +1114,16 @@ async function saveBanner(formElement) {
     link: String(data.get("link") || "").trim(),
     sort_order: Number(data.get("sort_order")) || 0,
     image_url: state.editor?.image_url || "",
-    image_mobile_url: data.get("remove_mobile") === "on" ? "" : state.editor?.image_mobile_url || "",
     active: data.get("active") === "on",
   };
   state.editor = banner;
-  for (const item of [file, mobileFile]) {
-    if (!(item instanceof File && item.size)) continue;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(item.type)) {
+  if (file instanceof File && file.size) {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
       state.error = "A imagem precisa ser PNG, JPG ou WebP.";
       render();
       return;
     }
-    if (item.size > 5 * 1024 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       state.error = "A imagem passa de 5 MB.";
       render();
       return;
@@ -1144,7 +1135,6 @@ async function saveBanner(formElement) {
   try {
     const supabase = await client();
     if (file instanceof File && file.size) banner.image_url = await uploadImage(supabase, file);
-    if (mobileFile instanceof File && mobileFile.size) banner.image_mobile_url = await uploadImage(supabase, mobileFile);
     if (!safeUrl(banner.image_url)) throw new Error("Escolha a imagem do banner.");
     const row = {
       title: banner.title,
@@ -1153,7 +1143,6 @@ async function saveBanner(formElement) {
       image_url: banner.image_url,
       active: banner.active,
     };
-    if (banner.image_mobile_url || hadMobile) row.image_mobile_url = banner.image_mobile_url;
     const query = banner.id
       ? supabase.from("banners").update(row).eq("id", banner.id)
       : supabase.from("banners").insert(row);
@@ -1292,7 +1281,11 @@ async function toggleProduct(id) {
 async function deleteProduct(id) {
   const product = state.products.find((item) => item.id === id);
   if (!product) return;
-  if (!confirm(`Excluir “${product.name}” do catálogo?`)) return;
+  const ok = await confirmDialog({
+    title: "Excluir produto?",
+    message: `“${product.name}” sai do catálogo e não dá para desfazer.`,
+  });
+  if (!ok) return;
   try {
     const supabase = await client();
     const { error } = await supabase.from("products").delete().eq("id", id);
@@ -1330,7 +1323,13 @@ async function saveStock(id) {
 }
 
 async function removeRow(table, id, notice) {
-  if (!id || !confirm("Excluir este item?")) return;
+  if (!id) return;
+  const what = table === "banners" ? "banner" : "aba";
+  const ok = await confirmDialog({
+    title: `Excluir ${what}?`,
+    message: `${what === "banner" ? "O banner sai" : "A aba sai"} da loja na hora e não dá para desfazer.`,
+  });
+  if (!ok) return;
   try {
     const supabase = await client();
     const { error } = await supabase.from(table).delete().eq("id", id);
@@ -1812,9 +1811,9 @@ function bind() {
 
   document.addEventListener("change", (event) => {
     const target = event.target;
-    if (target.id === "image-file" || target.id === "mobile-file") {
+    if (target.id === "image-file") {
       const file = target.files?.[0];
-      const preview = document.getElementById(target.id === "mobile-file" ? "mobile-preview" : "image-preview");
+      const preview = document.getElementById("image-preview");
       if (file && preview) {
         preview.src = URL.createObjectURL(file);
         preview.hidden = false;

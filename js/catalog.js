@@ -2,6 +2,7 @@ import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
 import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
+import { enhanceSelects } from "./ui.js";
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 
 const state = {
@@ -135,6 +136,7 @@ function render() {
   }
   document.title = titleFor(route);
   app.innerHTML = view(route);
+  enhanceSelects(app);
   document.body.classList.toggle("lock", state.menuOpen);
   if (state.menuOpen) placeMenu();
   if (!focusId) return;
@@ -291,7 +293,6 @@ function heroBanners() {
     .filter((banner) => safeUrl(banner.image_url))
     .map((banner) => ({
       image: banner.image_url,
-      mobile: safeUrl(banner.image_mobile_url) || "",
       alt: banner.title || "Banner da Goldpack",
       href: banner.link || "#/catalog",
     }));
@@ -306,10 +307,7 @@ function bannerRotator() {
     const external = /^https?:/i.test(banner.href);
     const href = external ? safeUrl(banner.href) : banner.href;
     return `<a class="hero-slide${index === current ? " is-active" : ""}" href="${esc(href)}"${external ? ` target="_blank" rel="noopener"` : ""}${index === current ? "" : ` tabindex="-1" aria-hidden="true"`}>
-      <picture>
-        ${banner.mobile ? `<source media="(max-width: 799px)" srcset="${esc(safeUrl(banner.mobile))}" width="1080" height="1080">` : ""}
-        <img src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>
-      </picture>
+      <img src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>
     </a>`;
   }).join("");
   const dots = list.length > 1
