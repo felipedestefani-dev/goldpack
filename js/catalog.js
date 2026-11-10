@@ -1,7 +1,8 @@
-import { developer, store } from "./config.js";
+import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
-import { discountOf, esc, friendlyError, kindLabel, money, safeUrl } from "./format.js";
-import { getClient, isConfigured } from "./supabase.js";
+import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
+import { tabIcon } from "./icons.js";
+import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 
 const state = {
   products: [],
@@ -13,6 +14,8 @@ const state = {
   filtersOpen: false,
   qty: 1,
   qtyFor: "",
+  slide: 0,
+  banners: [],
 };
 
 const app = document.querySelector("#app");
@@ -133,6 +136,7 @@ function render() {
   document.title = titleFor(route);
   app.innerHTML = view(route);
   document.body.classList.toggle("lock", state.menuOpen);
+  if (state.menuOpen) placeMenu();
   if (!focusId) return;
   const field = document.getElementById(focusId);
   if (!field) return;
@@ -140,6 +144,15 @@ function render() {
   if (selectionStart != null && field.setSelectionRange) {
     field.setSelectionRange(selectionStart, selectionEnd);
   }
+}
+
+function placeMenu() {
+  const button = document.querySelector(".menu-btn");
+  const menu = document.querySelector(".menu");
+  if (!button || !menu) return;
+  const box = button.getBoundingClientRect();
+  menu.style.top = `${Math.max(box.bottom + 8, 8)}px`;
+  menu.style.right = `${Math.max(window.innerWidth - box.right, 8)}px`;
 }
 
 function titleFor(route) {
@@ -178,14 +191,12 @@ function header(route) {
     <header class="header">
       <div class="wrap header-inner">
         <a class="logo" href="#/" aria-label="Goldpack, início">
-          <img src="assets/logo.png" alt="Goldpack — TCG, colecionáveis e games">
+          <img src="assets/logo.webp" alt="Goldpack — TCG, colecionáveis e games">
         </a>
         <div class="header-row">
         <form class="search" data-act="search">
           <label class="sr" for="q">Buscar produtos</label>
-          <select id="scope" aria-label="Escolher o que buscar">
-            ${options([["", "Tudo"], ["sealed", "Lacrados"], ["single", "Avulsos"], ["accessory", "Acessórios"]], kind)}
-          </select>
+          ${scopePicker(kind)}
           <input id="q" type="search" placeholder="Buscar produtos" value="${esc(q)}">
           <button type="submit" aria-label="Buscar">${searchIcon()}</button>
         </form>
@@ -193,7 +204,6 @@ function header(route) {
           <nav class="nav-desktop" aria-label="Principal">
             ${navLinks()}
           </nav>
-          <a class="btn btn-orange header-wa" href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener">WhatsApp</a>
           <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
         </div>
         </div>
@@ -221,15 +231,126 @@ function navLinks() {
   return tabs
     .map((tab) => {
       const href = safeHref(tab.href);
-      return href ? `<a href="${esc(href)}">${esc(tab.label)}</a>` : "";
+      return href ? `<a href="${esc(href)}">${tabIcon(href, tab.label)}<span>${esc(tab.label)}</span></a>` : "";
     })
     .join("");
+}
+
+const SCOPES = [["", "Tudo"], ["sealed", "Lacrados"], ["single", "Avulsos"], ["accessory", "Acessórios"]];
+
+function scopePicker(kind) {
+  const current = SCOPES.find(([value]) => value === kind) || SCOPES[0];
+  return `
+    <div class="scope">
+      <input type="hidden" id="scope" value="${esc(current[0])}">
+      <button class="scope-btn" type="button" data-act="scope-toggle" aria-haspopup="listbox" aria-expanded="false" aria-label="Escolher o que buscar">
+        <span>${esc(current[1])}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="scope-list" role="listbox" aria-label="O que buscar" hidden>
+        ${SCOPES.map(([value, label]) => `<button type="button" role="option" data-act="scope-pick" data-value="${esc(value)}" aria-selected="${value === current[0]}">${esc(label)}</button>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function toggleScope(open) {
+  const list = document.querySelector(".scope-list");
+  const button = document.querySelector(".scope-btn");
+  if (!list || !button) return;
+  const show = open ?? list.hidden;
+  list.hidden = !show;
+  button.setAttribute("aria-expanded", String(show));
+  if (show) list.querySelector('[aria-selected="true"]')?.focus();
+}
+
+function pickScope(option) {
+  const input = document.getElementById("scope");
+  if (input) input.value = option.dataset.value;
+  document.querySelector(".scope-btn span").textContent = option.textContent;
+  document.querySelectorAll(".scope-list [role=option]").forEach((item) => item.setAttribute("aria-selected", String(item === option)));
+  toggleScope(false);
+  document.getElementById("q")?.focus();
 }
 
 function options(pairs, current) {
   return pairs.map(([value, label]) => (
     `<option value="${esc(value)}" ${value === current ? "selected" : ""}>${esc(label)}</option>`
   )).join("");
+}
+
+const dotLoader = `<svg class="pl" viewBox="0 0 240 240" aria-hidden="true">
+  <circle class="pl__ring pl__ring--a" cx="120" cy="120" r="105" fill="none" stroke-width="20" stroke-dasharray="0 660" stroke-dashoffset="-330" stroke-linecap="round"></circle>
+  <circle class="pl__ring pl__ring--b" cx="120" cy="120" r="35" fill="none" stroke-width="20" stroke-dasharray="0 220" stroke-dashoffset="-110" stroke-linecap="round"></circle>
+  <circle class="pl__ring pl__ring--c" cx="85" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-linecap="round"></circle>
+  <circle class="pl__ring pl__ring--d" cx="155" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-linecap="round"></circle>
+</svg>`;
+
+function heroBanners() {
+  const fromAdmin = state.banners
+    .filter((banner) => safeUrl(banner.image_url))
+    .map((banner) => ({
+      image: banner.image_url,
+      mobile: safeUrl(banner.image_mobile_url) || "",
+      alt: banner.title || "Banner da Goldpack",
+      href: banner.link || "#/catalog",
+    }));
+  return fromAdmin.length ? fromAdmin : banners;
+}
+
+function bannerRotator() {
+  const list = heroBanners();
+  if (!list.length) return "";
+  const current = state.slide % list.length;
+  const slides = list.map((banner, index) => {
+    const external = /^https?:/i.test(banner.href);
+    const href = external ? safeUrl(banner.href) : banner.href;
+    return `<a class="hero-slide${index === current ? " is-active" : ""}" href="${esc(href)}"${external ? ` target="_blank" rel="noopener"` : ""}${index === current ? "" : ` tabindex="-1" aria-hidden="true"`}>
+      <picture>
+        ${banner.mobile ? `<source media="(max-width: 799px)" srcset="${esc(safeUrl(banner.mobile))}" width="1080" height="1080">` : ""}
+        <img src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>
+      </picture>
+    </a>`;
+  }).join("");
+  const dots = list.length > 1
+    ? `<div class="hero-dots">${list.map((banner, index) => `<button type="button" class="hero-dot${index === current ? " is-active" : ""}" data-act="slide" data-slide="${index}" aria-label="Ver banner ${index + 1}"${index === current ? ` aria-current="true"` : ""}>${dotLoader}</button>`).join("")}</div>`
+    : "";
+  const arrows = list.length > 1
+    ? `<button type="button" class="hero-arrow prev" data-act="slide-prev" aria-label="Banner anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+       <button type="button" class="hero-arrow next" data-act="slide-next" aria-label="Próximo banner"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>`
+    : "";
+  return `<div class="hero-zone"><div class="hero-stage"><section class="hero-rotator" aria-label="Destaques da Goldpack">${slides}</section>${arrows}</div>${dots}</div>`;
+}
+
+function showSlide(index) {
+  const total = heroBanners().length;
+  if (!total) return;
+  state.slide = (index + total) % total;
+  document.querySelectorAll(".hero-slide").forEach((slide, i) => {
+    const active = i === state.slide;
+    slide.classList.toggle("is-active", active);
+    if (active) {
+      slide.removeAttribute("tabindex");
+      slide.removeAttribute("aria-hidden");
+    } else {
+      slide.setAttribute("tabindex", "-1");
+      slide.setAttribute("aria-hidden", "true");
+    }
+  });
+  document.querySelectorAll(".hero-dot").forEach((dot, i) => {
+    dot.classList.toggle("is-active", i === state.slide);
+    if (i === state.slide) dot.setAttribute("aria-current", "true");
+    else dot.removeAttribute("aria-current");
+  });
+}
+
+function startRotator() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  setInterval(() => {
+    const rotator = document.querySelector(".hero-rotator");
+    if (!rotator || heroBanners().length < 2 || rotator.matches(":hover") || document.hidden) return;
+    showSlide(state.slide + 1);
+  }, 6000);
 }
 
 function homeView() {
@@ -239,6 +360,7 @@ function homeView() {
   const featured = state.products.filter((product) => product.featured).slice(0, 8);
   const accessories = state.products.filter((product) => product.kind === "accessory").slice(0, 8);
   return `
+    ${bannerRotator()}
     ${statusBlock()}
     ${ready && featured.length ? section("Destaques", featured, "#/catalog?sort=recent") : ""}
     ${ready && sealed.length ? section("Lacrados", sealed, "#/catalog?kind=sealed") : ""}
@@ -260,15 +382,11 @@ function section(title, products, href, { plain = false } = {}) {
 function card(product) {
   const image = safeUrl(product.image_url);
   const discount = discountOf(product);
-  const stock = Number(product.stock) || 0;
   const number = product.card_number ? `#${product.card_number}` : "";
   return `
     <article class="pcard">
       <a class="pcard-hit" href="#/p/${encodeURIComponent(product.id)}">
         <div class="visual">
-          ${discount ? `<span class="off">-${discount}%</span>` : ""}
-          <span class="stock ${stock > 0 ? "" : "out"}">${stock > 0 ? `${stock} un` : "Esgotado"}</span>
-          ${product.language ? `<span class="lang">${esc(product.language)}</span>` : ""}
           ${image ? `<img src="${esc(image)}" alt="">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
         </div>
         ${product.tag ? `<span class="tag">${esc(product.tag)}</span>` : `<span class="tag alt">${esc(kindLabel(product.kind))}</span>`}
@@ -305,11 +423,11 @@ function emptyCatalog() {
 function catalogView(route) {
   const params = route.params;
   const products = state.status === "ready" ? applyFilters(state.products, params) : [];
-  const select = (name, label, values) => `
+  const select = (name, label, values, show = (value) => value) => `
     <label>${label}
       <select data-filter="${name}">
         <option value="">Todos</option>
-        ${values.map((value) => `<option value="${esc(value)}" ${params.get(name) === value ? "selected" : ""}>${esc(value)}</option>`).join("")}
+        ${values.map((value) => `<option value="${esc(value)}" ${params.get(name) === value ? "selected" : ""}>${esc(show(value))}</option>`).join("")}
       </select>
     </label>
   `;
@@ -334,7 +452,7 @@ function catalogView(route) {
         </label>
         ${select("game", "Jogo", uniqueValues("game"))}
         ${select("collection", "Coleção", uniqueValues("collection"))}
-        ${select("language", "Idioma", uniqueValues("language"))}
+        ${select("language", "Idioma", uniqueValues("language"), (code) => languageInfo(code).flag)}
         ${select("condition", "Condição", uniqueValues("condition"))}
         ${select("finish", "Acabamento", uniqueValues("finish"))}
         <label>Ordenar
@@ -381,7 +499,7 @@ function productView(route) {
     ["Coleção", product.collection],
     ["Código", product.collection_code],
     ["Número", product.card_number],
-    ["Idioma", product.language],
+    ["Idioma", product.language && languageInfo(product.language).flag],
     ["Condição", product.condition],
     ["Acabamento", product.finish],
     ["Raridade", product.rarity],
@@ -455,11 +573,11 @@ function contactView() {
 function footer() {
   return `
     <footer class="footer">
+      <p class="credit">Site desenvolvido por <a href="${esc(developer.url)}" target="_blank" rel="noopener">${esc(developer.name)}</a></p>
       <nav class="footer-links" aria-label="Institucional">
         <a href="#/contato">Contato</a>
         ${POLICIES.map(([id, label]) => `<a href="#/${id}">${esc(label)}</a>`).join("")}
       </nav>
-      <p class="credit">Site desenvolvido por <a href="${esc(developer.url)}" target="_blank" rel="noopener">${esc(developer.name)}</a></p>
     </footer>
   `;
 }
@@ -477,12 +595,7 @@ function menuDrawer() {
   return `
     <div class="menu-back" data-act="menu-close"></div>
     <nav class="menu" aria-label="Menu">
-      <header>
-        <strong>Menu</strong>
-        <button class="close" type="button" data-act="menu-close" aria-label="Fechar menu">×</button>
-      </header>
       ${navLinks()}
-      <a href="${whatsappLink("Olá, Goldpack! Vim pelo catálogo.")}" target="_blank" rel="noopener">WhatsApp ${esc(phoneLabel())}</a>
     </nav>
   `;
 }
@@ -515,9 +628,18 @@ function writeQuery(mutate) {
 
 function bind() {
   document.addEventListener("click", (event) => {
+    if (!event.target.closest(".scope")) toggleScope(false);
     const target = event.target.closest("[data-act]");
     if (!target || target.tagName === "FORM") return;
     const act = target.dataset.act;
+    if (act === "scope-toggle") {
+      toggleScope();
+      return;
+    }
+    if (act === "scope-pick") {
+      pickScope(target);
+      return;
+    }
     if (act === "notice-ok") {
       state.noticeOpen = false;
       try {
@@ -527,7 +649,13 @@ function bind() {
       }
     } else if (act === "menu-open") state.menuOpen = true;
     else if (act === "menu-close") state.menuOpen = false;
-    else if (act === "filters") state.filtersOpen = !state.filtersOpen;
+    else if (act === "slide") {
+      showSlide(Number(target.dataset.slide));
+      return;
+    } else if (act === "slide-prev" || act === "slide-next") {
+      showSlide(state.slide + (act === "slide-next" ? 1 : -1));
+      return;
+    } else if (act === "filters") state.filtersOpen = !state.filtersOpen;
     else if (act === "qty") {
       const product = productById(currentRoute().id);
       const stock = Math.max(1, Number(product?.stock) || 1);
@@ -566,10 +694,26 @@ function bind() {
   });
 
   document.addEventListener("keydown", (event) => {
+    const option = event.target.closest?.(".scope-list [role=option]");
+    if (option && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault();
+      const sibling = event.key === "ArrowDown" ? option.nextElementSibling : option.previousElementSibling;
+      sibling?.focus();
+      return;
+    }
+    if (event.key === "Escape" && !document.querySelector(".scope-list")?.hidden) {
+      toggleScope(false);
+      document.querySelector(".scope-btn")?.focus();
+      return;
+    }
     if (event.key === "Escape" && state.menuOpen) {
       state.menuOpen = false;
       render();
     }
+  });
+
+  window.addEventListener("resize", () => {
+    if (state.menuOpen) placeMenu();
   });
 
   window.addEventListener("hashchange", () => {
@@ -585,26 +729,61 @@ async function loadProducts() {
     return;
   }
   try {
-    const supabase = await getClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) throw error;
-    state.products = data || [];
-    state.status = "ready";
-    await loadStorefrontExtras(supabase);
+    await fetchStore();
   } catch (error) {
     state.status = "error";
     state.error = friendlyError(error);
   }
 }
 
+async function fetchStore() {
+  const supabase = await getClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("active", true)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  state.products = data || [];
+  state.status = "ready";
+  await loadStorefrontExtras(supabase);
+}
+
+let refreshTimer = 0;
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    try {
+      await fetchStore();
+    } catch {
+      return;
+    }
+    if (currentRoute().name !== "contato") render();
+  }, 400);
+}
+
+async function listenForChanges() {
+  if (!isConfigured()) return;
+  try {
+    const supabase = await getClient();
+    supabase.channel(STORE_CHANNEL).on("broadcast", { event: "changed" }, scheduleRefresh).subscribe();
+  } catch {
+    return;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) scheduleRefresh();
+  });
+}
+
 async function loadStorefrontExtras(supabase) {
-  const tabs = await supabase.from("store_tabs").select("*").eq("active", true).order("sort_order", { ascending: true });
+  const [tabs, heroes] = await Promise.all([
+    supabase.from("store_tabs").select("*").eq("active", true).order("sort_order", { ascending: true }),
+    supabase.from("banners").select("*").eq("active", true).order("sort_order", { ascending: true }),
+  ]);
   if (!tabs.error) state.tabs = tabs.data || [];
+  if (!heroes.error) state.banners = heroes.data || [];
 }
 
 async function recordVisit() {
@@ -634,8 +813,10 @@ async function recordVisit() {
 
 bind();
 render();
+startRotator();
 loadProducts().then(() => {
   render();
   hideBoot();
   recordVisit();
+  listenForChanges();
 });

@@ -15,6 +15,7 @@ export function money(value) {
 }
 
 export function safeUrl(value) {
+  if (!String(value ?? "").trim()) return "";
   try {
     const url = new URL(String(value), location.origin);
     if (url.protocol === "http:" || url.protocol === "https:") return url.href;
@@ -32,6 +33,28 @@ export const KIND_LABEL = {
 
 export function kindLabel(kind) {
   return KIND_LABEL[kind] || "Produto";
+}
+
+export const LANGUAGES = [
+  ["PT-BR", "🇧🇷", "Português"],
+  ["EN", "🇺🇸", "Inglês"],
+  ["JP", "🇯🇵", "Japonês"],
+  ["KO", "🇰🇷", "Coreano"],
+  ["ZH", "🇨🇳", "Chinês"],
+  ["ES", "🇪🇸", "Espanhol"],
+  ["DE", "🇩🇪", "Alemão"],
+  ["FR", "🇫🇷", "Francês"],
+  ["IT", "🇮🇹", "Italiano"],
+];
+
+export function languageInfo(code) {
+  const found = LANGUAGES.find(([value]) => value === code);
+  return found ? { flag: found[1], name: found[2] } : { flag: code || "", name: code || "" };
+}
+
+export function languageFlag(code) {
+  const { flag, name } = languageInfo(code);
+  return flag ? `<span class="flag" role="img" aria-label="${esc(name)}" title="${esc(name)}">${esc(flag)}</span>` : "";
 }
 
 export function discountOf(product) {

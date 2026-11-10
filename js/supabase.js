@@ -9,6 +9,8 @@ export function isConfigured() {
   }
 }
 
+export const STORE_CHANNEL = "goldpack-store";
+
 let clientPromise = null;
 
 export function getClient() {

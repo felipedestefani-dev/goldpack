@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Goldpack — TCG, colecionáveis e games</title>
   <meta name="description" content="Catálogo da Goldpack. Lacrados, avulsos e acessórios. Compre pelo WhatsApp.">
-  <meta name="theme-color" content="#3b1760">
-  <link rel="icon" href="assets/logo.png">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -18,7 +18,15 @@
     <div class="boot-sprite" aria-hidden="true"></div>
     <div class="boot-bar" aria-hidden="true"><span></span></div>
   </div>
-  <div id="app"></div>
+  <div id="app"><p class="app-fallback">Não conseguimos abrir a loja agora. <a href="">Recarregar</a></p></div>
+  <script>
+    setTimeout(function () {
+      var boot = document.getElementById("boot");
+      if (!boot) return;
+      boot.classList.add("is-done");
+      setTimeout(function () { boot.remove(); }, 500);
+    }, 12000);
+  </script>
   <script type="module" src="js/catalog.js"></script>
 </body>
 </html>

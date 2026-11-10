@@ -10,6 +10,7 @@ export const store = {
   name: "Goldpack",
   tagline: "TCG · Colecionáveis · Games",
   whatsapp: "5511975768688",
+  jamble: "https://www.jamble.com/u/goldpack",
   email: "",
   hours: "",
   city: "",
@@ -18,6 +19,9 @@ export const store = {
   cnpj: "54.212.466/0001-80",
   address: "",
 };
+
+// Banners padrão da página inicial, usados só quando o painel não tem nenhum publicado.
+export const banners = [];
 
 export const developer = {
   name: "Felipe",
