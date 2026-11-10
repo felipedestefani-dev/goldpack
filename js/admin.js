@@ -44,7 +44,6 @@ const ICONS = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
-  logout: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
   store: '<path d="M4 10v10h16V10"/><path d="M3 10l2-6h14l2 6"/><path d="M3 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3"/>',
   alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/>',
   users: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 010 8"/><path d="M19 15c2 .7 3 2.6 3 6"/>',
@@ -290,7 +289,7 @@ function appShell() {
         <nav class="side-nav" aria-label="Seções do painel">${navLinks(section)}</nav>
         <div class="side-foot">
           <a class="side-link" href="/" target="_blank" rel="noopener">${iconImg("store", "nav-ico")}<span>Ver a loja</span></a>
-          <button class="side-link" type="button" data-act="logout">${icon("logout")}<span>Sair</span></button>
+          <button class="side-link logout" type="button" data-act="logout">Sair</button>
           <p class="side-user" title="${esc(email)}"><span class="avatar">${esc((email[0] || "G").toUpperCase())}</span><span>${esc(email)}</span></p>
         </div>
       </aside>
@@ -298,7 +297,7 @@ function appShell() {
         <a class="mtop-brand" href="/" target="_blank" rel="noopener" aria-label="Abrir a loja">${logo()}</a>
         <div class="mtop-actions">
           <a class="icon-btn" href="/" target="_blank" rel="noopener" aria-label="Ver a loja">${icon("store")}</a>
-          <button class="icon-btn" type="button" data-act="logout" aria-label="Sair">${icon("logout")}</button>
+          <button class="logout-btn" type="button" data-act="logout">Sair</button>
         </div>
       </header>
       <main class="workspace">
@@ -438,10 +437,10 @@ function when(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function kpi({ label, value, hint, ico, tone }) {
+function kpi({ label, value, hint, ico }) {
   return `
     <article class="kpi">
-      <span class="kpi-icon ${tone}">${icon(ico)}</span>
+      <img class="kpi-icon" src="/assets/icons/kpi/${ico}.svg" alt="" width="44" height="44">
       <div>
         <span class="kpi-label">${label}</span>
         <b class="kpi-value">${value}</b>
@@ -494,10 +493,10 @@ function overview() {
   return `
     ${pageHead("Visão geral", `Resumo da Goldpack · ${esc(greeting)}`, `${newProductButton()}<a class="btn btn-line" href="/" target="_blank" rel="noopener">${icon("store")}<span>Ver a loja</span></a>`)}
     <div class="kpis">
-      ${kpi({ label: "Na loja", value: live.length, hint: `${products.length} cadastrados`, ico: "box", tone: "purple" })}
-      ${kpi({ label: "Unidades em estoque", value: units, hint: out.length ? `${out.length} esgotado(s)` : "Nenhum esgotado", ico: "layers", tone: "orange" })}
-      ${kpi({ label: "Valor em estoque", value: money(value), hint: "Preço × unidades na loja", ico: "money", tone: "green" })}
-      ${kpi({ label: "Visitas hoje", value: today, hint: `${week} nos últimos 7 dias`, ico: "users", tone: "blue" })}
+      ${kpi({ label: "Na loja", value: live.length, hint: `${products.length} cadastrados`, ico: "loja" })}
+      ${kpi({ label: "Unidades em estoque", value: units, hint: out.length ? `${out.length} esgotado(s)` : "Nenhum esgotado", ico: "unidades" })}
+      ${kpi({ label: "Valor em estoque", value: money(value), hint: "Preço × unidades na loja", ico: "valor" })}
+      ${kpi({ label: "Visitas hoje", value: today, hint: `${week} nos últimos 7 dias`, ico: "visitas" })}
     </div>
     <div class="dash-grid">
       ${chartCard("Visitas nos últimos 14 dias", days)}
@@ -736,12 +735,12 @@ function visitsPanel() {
   const origins = topCounts(state.visits.map((visit) => referrerLabel(visit.referrer)), 5);
   const originsMax = Math.max(1, ...origins.map(([, count]) => count));
   return `
-    ${pageHead("Visitas", `${state.visits.length} registros carregados · uma visita por sessão`)}
+    ${pageHead("Visitas", `${state.visits.length} registros carregados · cada IP conta uma vez por dia`)}
     <div class="kpis">
-      ${kpi({ label: "Hoje", value: today, ico: "users", tone: "blue" })}
-      ${kpi({ label: "Últimos 7 dias", value: week, ico: "chart", tone: "purple" })}
-      ${kpi({ label: "Pessoas (IPs) em 7 dias", value: uniques, ico: "users", tone: "orange" })}
-      ${kpi({ label: "Registros", value: state.visits.length, ico: "layers", tone: "green" })}
+      ${kpi({ label: "Hoje", value: today, ico: "visitas" })}
+      ${kpi({ label: "Últimos 7 dias", value: week, ico: "semana" })}
+      ${kpi({ label: "Pessoas (IPs) em 7 dias", value: uniques, ico: "pessoas" })}
+      ${kpi({ label: "Registros", value: state.visits.length, ico: "registros" })}
     </div>
     <div class="dash-grid">
       ${chartCard("Visitas nos últimos 30 dias", days)}

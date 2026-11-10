@@ -786,9 +786,25 @@ async function loadStorefrontExtras(supabase) {
   if (!heroes.error) state.banners = heroes.data || [];
 }
 
+function visitDay() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function visitStorage(day) {
+  try {
+    if (day === undefined) return localStorage.getItem("goldpack-visit");
+    if (day) localStorage.setItem("goldpack-visit", day);
+    else localStorage.removeItem("goldpack-visit");
+  } catch {
+    /* storage blocked: the database still keeps one visit per IP per day */
+  }
+  return null;
+}
+
 async function recordVisit() {
-  if (!isConfigured() || sessionStorage.getItem("goldpack-visit")) return;
-  sessionStorage.setItem("goldpack-visit", "1");
+  const today = visitDay();
+  if (!isConfigured() || visitStorage() === today) return;
+  visitStorage(today);
   try {
     const supabase = await getClient();
     let ip = "";
@@ -805,9 +821,9 @@ async function recordVisit() {
       referrer: document.referrer || "",
       user_agent: navigator.userAgent || "",
     });
-    if (error) throw error;
+    if (error && error.code !== "23505") throw error;
   } catch {
-    sessionStorage.removeItem("goldpack-visit");
+    visitStorage("");
   }
 }
 

@@ -180,6 +180,17 @@ create table if not exists public.visits (
   user_agent text not null default ''
 );
 
+-- Uma visita por IP por dia (horário de Brasília).
+alter table public.visits add column if not exists visit_day date;
+update public.visits set visit_day = (created_at at time zone 'America/Sao_Paulo')::date where visit_day is null;
+alter table public.visits alter column visit_day set default (now() at time zone 'America/Sao_Paulo')::date;
+alter table public.visits alter column visit_day set not null;
+delete from public.visits v
+  using public.visits older
+  where v.ip <> '' and v.ip = older.ip and v.visit_day = older.visit_day
+    and (older.created_at, older.id) < (v.created_at, v.id);
+create unique index if not exists visits_one_per_ip_per_day on public.visits (ip, visit_day) where ip <> '';
+
 alter table public.banners enable row level security;
 alter table public.store_tabs enable row level security;
 alter table public.visits enable row level security;

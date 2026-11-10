@@ -70,7 +70,14 @@ function translateSetNames(text, index) {
     if (pt.length < 3 || !en || !result.includes(` ${pt} `)) continue;
     result = result.replace(` ${pt} `, ` ${normalize(en)} `);
   }
-  return result.trim();
+  const english = new Set([...index.groups.flatMap((group) => group.key.split(" "))]);
+  return result.trim().split(" ").map((word) => {
+    if (word.length < 4 || english.has(word)) return word;
+    const match = [...index.ptById.entries()].reverse().find(([id, ptName]) => (
+      index.enById.has(id) && normalize(ptName).split(" ").includes(word)
+    ));
+    return match ? normalize(index.enById.get(match[0])) : word;
+  }).join(" ");
 }
 
 function pickGroups(words, index) {
@@ -108,13 +115,14 @@ module.exports = async function handler(req, res) {
   }
   try {
     const index = await loadIndex();
-    let text = translateSetNames(query, index);
+    let text = query;
     const type = TYPES.find((item) => item.words.test(text));
     if (type) {
       type.words.lastIndex = 0;
-      text = text.replace(type.words, " ");
+      text = text.replace(type.words, " ").replace(/\s+/g, " ").trim();
     }
     TYPES.forEach((item) => { item.words.lastIndex = 0; });
+    text = translateSetNames(text, index);
     const words = text.split(" ").filter((word) => word && !NOISE.has(word));
     const groups = pickGroups(words, index);
     const lists = await Promise.all(groups.map(async (group) => {

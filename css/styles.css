@@ -616,11 +616,11 @@ p { margin: 0; }
 
 .notice {
   position: fixed;
-  left: 16px;
-  right: 16px;
+  left: 50%;
   bottom: 16px;
   z-index: 34;
-  max-width: 560px;
+  width: min(560px, calc(100% - 32px));
+  transform: translateX(-50%);
   display: flex;
   gap: 12px;
   align-items: center;

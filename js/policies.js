@@ -39,7 +39,7 @@ const pages = {
 
     <h2>Quais dados tratamos</h2>
     <ul>
-      <li><strong>Dados de navegação:</strong> endereço IP, página acessada, site de origem, navegador e dispositivo (user agent), data e hora do acesso. São registrados uma vez por sessão quando você abre a loja.</li>
+      <li><strong>Dados de navegação:</strong> endereço IP, página acessada, site de origem, navegador e dispositivo (user agent), data e hora do acesso. São registrados uma vez por dia quando você abre a loja.</li>
       <li><strong>Dados do pedido e atendimento:</strong> o que você nos envia pelo WhatsApp, como nome, telefone, endereço de entrega e, quando necessário para emissão de nota ou envio, CPF.</li>
       <li><strong>Formulário de contato:</strong> nome e mensagem digitados na página de Contato. O site não guarda esse conteúdo; ele apenas abre o WhatsApp com a mensagem pronta.</li>
     </ul>
@@ -103,7 +103,7 @@ const pages = {
 
     <h2>O que fica salvo no seu navegador</h2>
     <ul>
-      <li><strong>goldpack-visit</strong> (armazenamento da sessão): evita contar a mesma visita mais de uma vez. Some quando você fecha a aba.</li>
+      <li><strong>goldpack-visit</strong> (armazenamento local): guarda só a data da última visita registrada, para contar cada visitante uma vez por dia.</li>
       <li><strong>goldpack-aviso</strong> (armazenamento local): lembra que você já viu o aviso de privacidade, para ele não aparecer de novo.</li>
       <li><strong>goldpack-auth</strong> (armazenamento local): usado só no painel da loja, para manter a equipe conectada. Clientes não recebem esse item.</li>
     </ul>
