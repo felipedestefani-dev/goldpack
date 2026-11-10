@@ -1,0 +1,7 @@
+{
+  "name": "goldpack",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs"
+  }
+}

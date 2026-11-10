@@ -164,7 +164,9 @@ function placeMenu() {
   if (!button || !menu) return;
   const box = button.getBoundingClientRect();
   menu.style.top = `${Math.max(box.bottom + 8, 8)}px`;
-  menu.style.right = `${Math.max(window.innerWidth - box.right, 8)}px`;
+  const left = box.left > window.innerWidth / 2 ? box.right - menu.offsetWidth : box.left;
+  menu.style.left = `${Math.max(Math.min(left, window.innerWidth - menu.offsetWidth - 8), 8)}px`;
+  menu.style.transformOrigin = box.left > window.innerWidth / 2 ? "top right" : "top left";
 }
 
 function titleFor(route) {
@@ -202,23 +204,16 @@ function header(route) {
   return `
     <header class="header">
       <div class="wrap header-inner">
+        <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
         <a class="logo" href="#/" aria-label="Goldpack, início">
-          <img src="assets/logo.webp" alt="Goldpack — TCG, colecionáveis e games">
+          <img src="assets/logo.webp" width="1015" height="304" alt="Goldpack — TCG, colecionáveis e games">
         </a>
-        <div class="header-row">
         <form class="search" data-act="search">
           <label class="sr" for="q">Buscar produtos</label>
           ${scopePicker(kind)}
           <input id="q" type="search" placeholder="Buscar produtos" value="${esc(q)}">
           <button type="submit" aria-label="Buscar">${searchIcon()}</button>
         </form>
-        <div class="header-actions">
-          <nav class="nav-desktop" aria-label="Principal">
-            ${navLinks()}
-          </nav>
-          <button class="menu-btn" type="button" data-act="menu-open" aria-label="Abrir menu">${menuIcon()}</button>
-        </div>
-        </div>
       </div>
     </header>
   `;
@@ -232,6 +227,15 @@ function safeHref(value) {
   return "";
 }
 
+function isCurrentPage(href) {
+  try {
+    const url = new URL(href, location.href);
+    return url.origin === location.origin && (url.hash || "#/") === (location.hash || "#/");
+  } catch {
+    return false;
+  }
+}
+
 function navLinks() {
   const tabs = state.tabs.length
     ? state.tabs
@@ -243,7 +247,8 @@ function navLinks() {
   return tabs
     .map((tab) => {
       const href = safeHref(tab.href);
-      return href ? `<a href="${esc(href)}">${tabIcon(href, tab.label)}<span>${esc(tab.label)}</span></a>` : "";
+      const current = isCurrentPage(href) ? ` aria-current="page"` : "";
+      return href ? `<a href="${esc(href)}"${current}>${tabIcon(href, tab.label)}<span>${esc(tab.label)}</span></a>` : "";
     })
     .join("");
 }
@@ -381,7 +386,10 @@ function homeView() {
 function section(title, products, href, { plain = false } = {}) {
   return `
     <section class="section ${plain ? "" : "wrap"}">
-      <h2 class="section-title"><a href="${esc(href)}">${esc(title)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a></h2>
+      <div class="section-head">
+        <h2 class="section-title">${esc(title)}</h2>
+        <a class="see-all" href="${esc(href)}" aria-label="Ver todos: ${esc(title)}">Ver todos<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+      </div>
       <div class="shelf-scroll"><div class="grid">${products.map(card).join("")}</div></div>
     </section>
   `;

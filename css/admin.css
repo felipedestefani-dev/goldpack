@@ -3,6 +3,7 @@ body.admin {
   --muted: #6f6863;
   --line: #ece7e2;
   --accent: var(--orange-deep);
+  --accent-soft: #fff1e4;
   --line-strong: #e2dcd6;
   --surface: #ffffff;
   --surface-2: #f6f3f0;
