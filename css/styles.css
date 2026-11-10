@@ -732,6 +732,14 @@ body:has(#boot) .hero-dot.is-active::after { animation-play-state: paused; }
   text-decoration-color: rgba(255, 198, 26, 0.5);
   text-underline-offset: 3px;
 }
+.credit a.credit-logo {
+  display: inline-block;
+  vertical-align: middle;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.credit-logo img { display: block; width: auto; height: 18px; }
+.credit-logo:hover { opacity: 0.75; }
 
 .policy { max-width: 760px; margin: 28px auto 0; }
 .policy h1 { font-size: clamp(30px, 4vw, 42px); margin-bottom: 14px; }

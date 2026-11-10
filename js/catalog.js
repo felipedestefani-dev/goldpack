@@ -634,7 +634,7 @@ function contactView() {
 function footer() {
   return `
     <footer class="footer">
-      <p class="credit">Site desenvolvido por <a href="${esc(developer.url)}" target="_blank" rel="noopener">${esc(developer.name)}</a></p>
+      <p class="credit">Site desenvolvido por <a class="credit-logo" href="${esc(developer.url)}" target="_blank" rel="noopener"><img src="${esc(developer.logo)}" alt="${esc(developer.name)}" width="122" height="18"></a></p>
       <nav class="footer-links" aria-label="Institucional">
         <a href="#/contato">Contato</a>
         ${POLICIES.map(([id, label]) => `<a href="#/${id}">${esc(label)}</a>`).join("")}

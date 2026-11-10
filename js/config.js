@@ -26,6 +26,7 @@ export const store = {
 export const banners = [];
 
 export const developer = {
-  name: "Felipe",
+  name: "North Company",
   url: "https://felipeseussites.vercel.app",
+  logo: "assets/north-company.png",
 };
