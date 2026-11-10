@@ -3,6 +3,7 @@ import { LANGUAGES, esc, friendlyError, kindLabel, languageFlag, money, safeUrl 
 import { cardDetails, collectionCode, loadSets, searchCards } from "./pokemon.js";
 import { confirmDialog, enhanceSelects } from "./ui.js";
 import { iconImg, tabIcon } from "./icons.js";
+import { AD_FIELDS, AD_MAX, AD_THEMES, adHtml, isAdBanner } from "./banner-ad.js";
 
 const AUTO_CONDITION = { sealed: "Lacrado", single: "NM", accessory: "Novo" };
 const KINDS = [["sealed", "Lacrado"], ["single", "Avulso"], ["accessory", "Acessório"]];
@@ -676,14 +677,16 @@ function stockPanel() {
 
 function bannersPanel() {
   return `
-    ${pageHead("Banners", "Carrossel do topo da página inicial · imagens de 2400 × 800 px", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
+    ${pageHead("Banners", "Carrossel do topo da página inicial · animado ou imagem de 2400 × 800 px", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
     ${state.banners.length ? `
       <div class="banner-grid">
         ${state.banners.map((banner) => {
           const image = safeUrl(banner.image_url);
           return `
             <article class="banner-card${banner.active ? "" : " is-hidden"}">
-              <div class="banner-img">${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : icon("image")}</div>
+              ${isAdBanner(banner)
+                ? `<div class="banner-img banner-ad is-active">${adHtml(banner)}</div>`
+                : `<div class="banner-img">${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : icon("image")}</div>`}
               <div class="banner-body">
                 <div>
                   <h2>${esc(banner.title || "Sem título")}</h2>
@@ -804,22 +807,95 @@ function toggleField(name, label, hint, checked) {
   `;
 }
 
+let bannerArt = {};
+
+function bannerFromForm(data) {
+  const banner = {
+    style: data.get("style") === "anim" ? "anim" : "image",
+    theme: String(data.get("theme") || AD_THEMES[0][0]),
+    live: data.get("live") === "on",
+    socials: data.get("socials") === "on",
+  };
+  AD_FIELDS.forEach((key) => {
+    banner[key] = String(data.get(key) || "").trim().slice(0, AD_MAX);
+  });
+  return banner;
+}
+
+function bannerAdPreview(banner) {
+  const sample = { ...banner, title: banner.title || "Seu título aqui", image_url: state.editor?.image_url || "" };
+  return adHtml(sample, bannerArt.url ? { art: bannerArt.url, cutout: bannerArt.cutout } : {});
+}
+
+function refreshBannerEditor() {
+  const form = document.querySelector(".editor");
+  if (!form || state.editor?.type !== "banner") return;
+  const banner = bannerFromForm(new FormData(form));
+  form.querySelectorAll("[data-style]").forEach((element) => {
+    element.hidden = element.dataset.style !== banner.style;
+  });
+  const html = bannerAdPreview(banner);
+  form.querySelectorAll(".ad-preview").forEach((box) => {
+    box.innerHTML = html;
+  });
+}
+
 function bannerEditor(form) {
+  bannerArt = {};
+  const anim = form.style === "anim";
   const preview = safeUrl(form.image_url);
+  const theme = AD_THEMES.some(([id]) => id === form.theme) ? form.theme : AD_THEMES[0][0];
+  const text = (name, label, placeholder) => `
+    <label class="field">${label}
+      <input name="${name}" maxlength="${AD_MAX}" value="${esc(form[name] || "")}" placeholder="${placeholder}">
+    </label>`;
   return editorShell(form.id ? "Editar banner" : "Novo banner", `
+    <fieldset class="fs">
+      <legend>Tipo</legend>
+      <div class="seg seg-2">
+        <label><input type="radio" name="style" value="anim" ${anim ? "checked" : ""}><span>Animado</span></label>
+        <label><input type="radio" name="style" value="image" ${anim ? "" : "checked"}><span>Imagem pronta</span></label>
+      </div>
+      <p class="hint" data-style="anim" ${anim ? "" : "hidden"}>O site desenha o banner com os textos abaixo, nas cores da Goldpack, e anima a entrada. Fica certo no celular e no computador.</p>
+      <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Uma arte pronta de 2400 × 800 px, feita fora do site.</p>
+    </fieldset>
+    <fieldset class="fs" data-style="anim" ${anim ? "" : "hidden"}>
+      <legend>Prévia</legend>
+      <p class="ad-label">Celular</p>
+      <div class="ad-preview is-active">${bannerAdPreview(form)}</div>
+      <p class="ad-label">Computador</p>
+      <div class="ad-preview is-wide is-active">${bannerAdPreview(form)}</div>
+    </fieldset>
+    <fieldset class="fs">
+      <legend>Textos</legend>
+      <div data-style="anim" ${anim ? "" : "hidden"}>${text("tag", "Etiqueta", "Pré-venda")}</div>
+      <label class="field">Título
+        <input name="title" maxlength="${AD_MAX}" value="${esc(form.title)}" placeholder="${anim ? "Primeira linha, em letras grandes" : "Também vira o texto alternativo da imagem"}">
+      </label>
+      <div class="ad-fields" data-style="anim" ${anim ? "" : "hidden"}>
+        ${text("highlight", "Destaque", "Segunda linha, na cor de destaque")}
+        ${text("subtitle", "Frase de apoio", "Aparece só no computador")}
+        ${text("cta", "Botão", "Garantir o meu")}
+        <div class="field">Cores
+          <div class="seg seg-2">
+            ${AD_THEMES.map(([id, label]) => `<label><input type="radio" name="theme" value="${esc(id)}" ${id === theme ? "checked" : ""}><span>${esc(label)}</span></label>`).join("")}
+          </div>
+        </div>
+        ${toggleField("live", "Selo AO VIVO", "Mostra um selo piscando embaixo da arte.", form.live)}
+        ${toggleField("socials", "Botões das redes sociais", "Troca o botão por Instagram, WhatsApp e Jamble. O link do banner deixa de valer.", form.socials)}
+      </div>
+    </fieldset>
     <fieldset class="fs">
       <legend>Imagem</legend>
       <div class="drop banner-drop">
-        <img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}>
+        <div data-style="image" ${anim ? "hidden" : ""}><img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}></div>
         <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
-        <p class="hint">Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No celular as laterais são cortadas: deixe textos e logos nos 2000 px do centro.</p>
+        <p class="hint" data-style="anim" ${anim ? "" : "hidden"}>Opcional: sem imagem, o texto ocupa o banner todo. É a arte que flutua ao lado do texto: use PNG ou WebP sem fundo (produto recortado). JPG vira um card com borda branca. Até 5 MB.</p>
+        <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No celular as laterais são cortadas: deixe textos e logos nos 2000 px do centro.</p>
       </div>
     </fieldset>
     <fieldset class="fs">
       <legend>Detalhes</legend>
-      <label class="field">Título
-        <input name="title" value="${esc(form.title)}" placeholder="Também vira o texto alternativo da imagem">
-      </label>
       <label class="field">Link ao clicar
         <input name="link" value="${esc(form.link)}" placeholder="#/catalog ou https://…">
       </label>
@@ -1110,7 +1186,7 @@ async function saveBanner(formElement) {
   const banner = {
     id: state.editor?.id || "",
     type: "banner",
-    title: String(data.get("title") || "").trim(),
+    ...bannerFromForm(data),
     link: String(data.get("link") || "").trim(),
     sort_order: Number(data.get("sort_order")) || 0,
     image_url: state.editor?.image_url || "",
@@ -1134,8 +1210,10 @@ async function saveBanner(formElement) {
   render();
   try {
     const supabase = await client();
+    const anim = banner.style === "anim";
+    if (anim && !banner.title) throw new Error("Escreva o título do banner.");
     if (file instanceof File && file.size) banner.image_url = await uploadImage(supabase, file);
-    if (!safeUrl(banner.image_url)) throw new Error("Escolha a imagem do banner.");
+    if (!anim && !safeUrl(banner.image_url)) throw new Error("Escolha a imagem do banner.");
     const row = {
       title: banner.title,
       link: banner.link,
@@ -1143,10 +1221,26 @@ async function saveBanner(formElement) {
       image_url: banner.image_url,
       active: banner.active,
     };
-    const query = banner.id
-      ? supabase.from("banners").update(row).eq("id", banner.id)
-      : supabase.from("banners").insert(row);
-    const { error } = await query;
+    const adRow = {
+      ...row,
+      style: banner.style,
+      tag: banner.tag,
+      highlight: banner.highlight,
+      subtitle: banner.subtitle,
+      cta: banner.cta,
+      theme: banner.theme,
+      live: banner.live,
+      socials: banner.socials,
+    };
+    const write = (values) => (banner.id
+      ? supabase.from("banners").update(values).eq("id", banner.id)
+      : supabase.from("banners").insert(values));
+    let { error } = await write(adRow);
+    const noAdColumns = error && /column/i.test(error.message || "");
+    if (noAdColumns && anim) {
+      throw new Error("Falta liberar o banner animado no banco: no SQL Editor do Supabase, execute o supabase/schema.sql de novo.");
+    }
+    if (noAdColumns) ({ error } = await write(row));
     if (error) throw error;
     await afterChange(supabase);
     state.editor = null;
@@ -1669,7 +1763,7 @@ function bind() {
       return;
     }
     if (act === "new-banner") {
-      openEditor({ type: "banner", id: "", title: "", image_url: "", link: "", sort_order: state.banners.length, active: true });
+      openEditor({ type: "banner", id: "", style: "anim", theme: AD_THEMES[0][0], live: false, socials: false, title: "", tag: "", highlight: "", subtitle: "", cta: "", image_url: "", link: "", sort_order: state.banners.length, active: true });
       return;
     }
     if (act === "edit-banner") {
@@ -1777,6 +1871,7 @@ function bind() {
       return;
     }
     if (target.name === "image_url" && target.closest(".editor")) updatePreview(target.value);
+    if (AD_FIELDS.includes(target.name) && target.closest(".editor")) refreshBannerEditor();
   });
 
   document.addEventListener("keydown", (event) => {
@@ -1820,7 +1915,12 @@ function bind() {
         const empty = document.querySelector(".photo-empty");
         if (empty) empty.hidden = true;
       }
+      if (file && state.editor?.type === "banner") {
+        bannerArt = { url: preview?.src || URL.createObjectURL(file), cutout: file.type !== "image/jpeg" };
+        refreshBannerEditor();
+      }
     }
+    if (["style", "theme", "live", "socials"].includes(target.name) && state.editor?.type === "banner") refreshBannerEditor();
     if (target.name === "kind") {
       syncCondition(target.value);
       syncSearchHint(target.value);

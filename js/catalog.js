@@ -2,6 +2,7 @@ import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
 import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
+import { adHtml, isAdBanner } from "./banner-ad.js";
 import { enableDragScroll, enhanceSelects } from "./ui.js";
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 
@@ -21,6 +22,9 @@ const state = {
 };
 
 const app = document.querySelector("#app");
+const SEARCH_MAX = 80;
+const NAME_MAX = 80;
+const MESSAGE_MAX = 1000;
 
 function noticeSeen() {
   try {
@@ -72,6 +76,7 @@ async function hideBoot() {
   const animations = boot.getAnimations ? boot.getAnimations({ subtree: true }) : [];
   await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   boot.classList.add("is-done");
+  replayFirstSlide();
   setTimeout(() => boot.remove(), 500);
 }
 
@@ -81,7 +86,7 @@ function initials(name) {
 }
 
 function applyFilters(list, params) {
-  const q = (params.get("q") || "").trim().toLowerCase();
+  const q = (params.get("q") || "").trim().slice(0, SEARCH_MAX).toLowerCase();
   const kind = params.get("kind") || "";
   const game = params.get("game") || "";
   const collection = params.get("collection") || "";
@@ -211,7 +216,7 @@ function header(route) {
         <form class="search" data-act="search">
           <label class="sr" for="q">Buscar produtos</label>
           ${scopePicker(kind)}
-          <input id="q" type="search" placeholder="Buscar produtos" value="${esc(q)}">
+          <input id="q" type="search" placeholder="Buscar produtos" maxlength="${SEARCH_MAX}" value="${esc(q.slice(0, SEARCH_MAX))}">
           <button type="submit" aria-label="Buscar">${searchIcon()}</button>
         </form>
       </div>
@@ -296,17 +301,11 @@ function options(pairs, current) {
   )).join("");
 }
 
-const dotLoader = `<svg class="pl" viewBox="0 0 240 240" aria-hidden="true">
-  <circle class="pl__ring pl__ring--a" cx="120" cy="120" r="105" fill="none" stroke-width="20" stroke-dasharray="0 660" stroke-dashoffset="-330" stroke-linecap="round"></circle>
-  <circle class="pl__ring pl__ring--b" cx="120" cy="120" r="35" fill="none" stroke-width="20" stroke-dasharray="0 220" stroke-dashoffset="-110" stroke-linecap="round"></circle>
-  <circle class="pl__ring pl__ring--c" cx="85" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-linecap="round"></circle>
-  <circle class="pl__ring pl__ring--d" cx="155" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-linecap="round"></circle>
-</svg>`;
-
 function heroBanners() {
   const fromAdmin = state.banners
-    .filter((banner) => safeUrl(banner.image_url))
+    .filter((banner) => isAdBanner(banner) || safeUrl(banner.image_url))
     .map((banner) => ({
+      ad: isAdBanner(banner) ? banner : null,
       image: banner.image_url,
       alt: banner.title || "Banner da Goldpack",
       href: banner.link || "#/catalog",
@@ -321,12 +320,20 @@ function bannerRotator() {
   const slides = list.map((banner, index) => {
     const external = /^https?:/i.test(banner.href);
     const href = external ? safeUrl(banner.href) : banner.href;
-    return `<a class="hero-slide${index === current ? " is-active" : ""}" href="${esc(href)}"${external ? ` target="_blank" rel="noopener"` : ""}${index === current ? "" : ` tabindex="-1" aria-hidden="true"`}>
-      <img src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>
+    const body = banner.ad
+      ? adHtml(banner.ad)
+      : `<img class="hero-bg" src="${esc(safeUrl(banner.image))}" alt="" aria-hidden="true"${index ? ` loading="lazy"` : ""}>
+         <img class="hero-img" src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>`;
+    const hidden = index === current ? "" : ` aria-hidden="true"`;
+    if (banner.ad?.socials) {
+      return `<div class="hero-slide${index === current ? " is-active" : ""}" role="group" aria-label="${esc(banner.alt)}"${hidden}>${body}</div>`;
+    }
+    return `<a class="hero-slide${index === current ? " is-active" : ""}" href="${esc(href)}"${banner.ad ? ` aria-label="${esc(banner.alt)}"` : ""}${external ? ` target="_blank" rel="noopener"` : ""}${index === current ? "" : ` tabindex="-1"`}${hidden}>
+      ${body}
     </a>`;
   }).join("");
   const dots = list.length > 1
-    ? `<div class="hero-dots">${list.map((banner, index) => `<button type="button" class="hero-dot${index === current ? " is-active" : ""}" data-act="slide" data-slide="${index}" aria-label="Ver banner ${index + 1}"${index === current ? ` aria-current="true"` : ""}>${dotLoader}</button>`).join("")}</div>`
+    ? `<div class="hero-dots">${list.map((banner, index) => `<button type="button" class="hero-dot${index === current ? " is-active" : ""}" data-act="slide" data-slide="${index}" aria-label="Ver banner ${index + 1}"${index === current ? ` aria-current="true"` : ""}></button>`).join("")}</div>`
     : "";
   const arrows = list.length > 1
     ? `<button type="button" class="hero-arrow prev" data-act="slide-prev" aria-label="Banner anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
@@ -355,15 +362,26 @@ function showSlide(index) {
     if (i === state.slide) dot.setAttribute("aria-current", "true");
     else dot.removeAttribute("aria-current");
   });
+  replay(document.querySelector(".hero-dot.is-active"));
 }
 
+function replay(element) {
+  element?.getAnimations?.({ subtree: true }).forEach((animation) => {
+    animation.cancel();
+    animation.play();
+  });
+}
+
+// The active dot's fill animation is the slide timer: when it ends, the next banner comes in.
 function startRotator() {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  setInterval(() => {
-    const rotator = document.querySelector(".hero-rotator");
-    if (!rotator || heroBanners().length < 2 || rotator.matches(":hover") || document.hidden) return;
-    showSlide(state.slide + 1);
-  }, 6000);
+  document.addEventListener("animationend", (event) => {
+    if (event.animationName === "dot-fill" && event.target.matches?.(".hero-dot.is-active")) showSlide(state.slide + 1);
+  });
+}
+
+function replayFirstSlide() {
+  showSlide(0);
+  replay(document.querySelector(".hero-slide.is-active"));
 }
 
 function homeView() {
@@ -602,9 +620,9 @@ function contactView() {
         ${phoneDigits() ? `
           <form data-act="contact">
             <label class="sr" for="contact-name">Nome</label>
-            <input id="contact-name" name="name" placeholder="Seu nome" required>
+            <input id="contact-name" name="name" placeholder="Seu nome" maxlength="${NAME_MAX}" required>
             <label class="sr" for="contact-message">Mensagem</label>
-            <textarea id="contact-message" name="message" placeholder="Escreva sua mensagem" required></textarea>
+            <textarea id="contact-message" name="message" placeholder="Escreva sua mensagem" maxlength="${MESSAGE_MAX}" required></textarea>
             <button class="btn btn-orange" type="submit">Enviar no WhatsApp</button>
           </form>
         ` : `<p class="note">O WhatsApp da loja volta em instantes.</p>`}
@@ -716,7 +734,7 @@ function bind() {
     if (form.dataset.act === "search") {
       event.preventDefault();
       const params = new URLSearchParams();
-      const q = document.getElementById("q")?.value.trim() || "";
+      const q = (document.getElementById("q")?.value.trim() || "").slice(0, SEARCH_MAX);
       const kind = document.getElementById("scope")?.value || "";
       if (q) params.set("q", q);
       if (kind) params.set("kind", kind);
@@ -726,7 +744,9 @@ function bind() {
     if (form.dataset.act === "contact") {
       event.preventDefault();
       const data = new FormData(form);
-      const message = `Olá, Goldpack! Meu nome é ${data.get("name")}.\n\n${data.get("message")}`;
+      const name = String(data.get("name") || "").trim().slice(0, NAME_MAX);
+      const text = String(data.get("message") || "").trim().slice(0, MESSAGE_MAX);
+      const message = `Olá, Goldpack! Meu nome é ${name}.\n\n${text}`;
       window.open(whatsappLink(message), "_blank", "noopener");
     }
   });
@@ -867,10 +887,10 @@ async function recordVisit() {
       ip = "";
     }
     const { error } = await supabase.from("visits").insert({
-      ip,
-      path: `${location.pathname}${location.hash || ""}`,
-      referrer: document.referrer || "",
-      user_agent: navigator.userAgent || "",
+      ip: /^[0-9a-fA-F.:]{3,45}$/.test(ip) ? ip : "",
+      path: `${location.pathname}${location.hash || ""}`.slice(0, 300),
+      referrer: (document.referrer || "").slice(0, 500),
+      user_agent: (navigator.userAgent || "").slice(0, 400),
     });
     if (error && error.code !== "23505") throw error;
   } catch {

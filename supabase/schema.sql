@@ -160,6 +160,21 @@ create table if not exists public.banners (
   created_at timestamptz not null default now()
 );
 
+-- Banner animado: desenhado pelo site a partir dos textos, com a imagem como arte.
+alter table public.banners add column if not exists style text not null default 'image';
+alter table public.banners add column if not exists tag text not null default '';
+alter table public.banners add column if not exists highlight text not null default '';
+alter table public.banners add column if not exists subtitle text not null default '';
+alter table public.banners add column if not exists cta text not null default '';
+alter table public.banners add column if not exists theme text not null default 'ouro';
+alter table public.banners add column if not exists live boolean not null default false;
+alter table public.banners add column if not exists socials boolean not null default false;
+alter table public.banners drop constraint if exists banners_ad_ok;
+alter table public.banners add constraint banners_ad_ok check (
+  style in ('image', 'anim') and theme in ('ouro', 'roxo', 'claro', 'verde') and
+  length(tag) <= 60 and length(highlight) <= 60 and length(subtitle) <= 60 and length(cta) <= 60
+);
+
 create table if not exists public.store_tabs (
   id uuid primary key default gen_random_uuid(),
   label text not null,
@@ -188,6 +203,21 @@ delete from public.visits v
   where v.ip <> '' and v.ip = older.ip and v.visit_day = older.visit_day
     and (older.created_at, older.id) < (v.created_at, v.id);
 create unique index if not exists visits_one_per_ip_per_day on public.visits (ip, visit_day) where ip <> '';
+
+-- Qualquer pessoa com a chave pública pode inserir visitas: limita tamanho e formato no banco.
+update public.visits set
+  ip = case when ip ~ '^[0-9A-Fa-f.:]{3,45}$' then ip else '' end,
+  path = left(path, 300),
+  referrer = left(referrer, 500),
+  user_agent = left(user_agent, 400)
+where ip !~ '^([0-9A-Fa-f.:]{3,45})?$'
+  or length(path) > 300 or length(referrer) > 500 or length(user_agent) > 400;
+alter table public.visits drop constraint if exists visits_ip_format;
+alter table public.visits add constraint visits_ip_format check (ip ~ '^([0-9A-Fa-f.:]{3,45})?$');
+alter table public.visits drop constraint if exists visits_text_sizes;
+alter table public.visits add constraint visits_text_sizes check (
+  length(path) <= 300 and length(referrer) <= 500 and length(user_agent) <= 400
+);
 
 alter table public.banners enable row level security;
 alter table public.store_tabs enable row level security;

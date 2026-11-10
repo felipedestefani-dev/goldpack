@@ -764,6 +764,18 @@ body.admin {
 }
 .file-btn:hover { border-color: var(--orange); }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.editor [data-style][hidden] { display: none; }
+.seg.seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ad-fields { display: grid; gap: 14px; }
+.ad-label { margin: 0 0 -8px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.ad-preview { overflow: hidden; border-radius: 14px; box-shadow: 0 8px 24px rgba(20, 16, 12, 0.18); }
+.ad-preview:not(.is-wide) { width: min(100%, 390px); }
+.ad-preview.is-wide { width: fit-content; max-width: 100%; }
+.ad-preview.is-wide .ad-box { width: 1120px; zoom: .53; }
+.banner-img.banner-ad { display: block; aspect-ratio: auto; }
+@media (max-width: 700px) {
+  .ad-preview.is-wide .ad-box { zoom: .27; }
+}
 .drop.banner-drop { display: grid; gap: 10px; }
 .banner-drop img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; border-radius: 12px; }
 /* Celular */

@@ -11,6 +11,8 @@ export const store = {
   tagline: "TCG · Colecionáveis · Games",
   whatsapp: "5511975768688",
   jamble: "https://www.jamble.com/u/goldpack",
+  instagram: "https://www.instagram.com/goldpack.tcg/",
+  whatsappGroup: "https://chat.whatsapp.com/BnUuqMxwuu8HxXNjHDMKRx",
   email: "",
   hours: "",
   city: "",
