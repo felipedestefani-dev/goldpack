@@ -2,7 +2,7 @@ import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
 import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
-import { adHtml, isAdBanner } from "./banner-ad.js";
+import { SOCIAL_ICONS, adHtml, isAdBanner, socialLinks } from "./banner-ad.js";
 import { enableDragScroll, enhanceSelects } from "./ui.js";
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 
@@ -23,9 +23,6 @@ const state = {
 
 const app = document.querySelector("#app");
 const SEARCH_MAX = 80;
-const NAME_MAX = 80;
-const MESSAGE_MAX = 1000;
-
 function noticeSeen() {
   try {
     return localStorage.getItem("goldpack-aviso") === "1";
@@ -604,28 +601,41 @@ function productView(route) {
   `;
 }
 
+function handleOf(href) {
+  try {
+    const url = new URL(href);
+    const name = url.pathname.split("/").filter(Boolean).pop();
+    return name ? `@${name}` : url.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 function contactView() {
+  const channels = [
+    phoneDigits() ? ["whatsapp", "WhatsApp", whatsappLink("Olá, Goldpack!"), phoneLabel()] : null,
+    ...socialLinks().map(([id, label, href]) => [id, label, safeUrl(href), id === "whatsapp" ? "Entrar no grupo" : handleOf(href)]),
+  ].filter((channel) => channel && channel[2]);
   const lines = [
     store.city ? ["Cidade", store.city] : null,
     store.hours ? ["Horário", store.hours] : null,
     store.email ? ["E-mail", store.email] : null,
-    phoneDigits() ? ["WhatsApp", phoneLabel()] : null,
   ].filter(Boolean);
   return `
     <div class="wrap">
       <section class="contact-card">
         <h1>Fale com a Goldpack</h1>
-        <p class="note">Reserve um produto ou mande sua dúvida. A resposta chega no WhatsApp ${esc(phoneLabel())}.</p>
+        <p class="note">Siga a Goldpack nas redes e chame a gente no WhatsApp para reservar produtos ou tirar dúvidas.</p>
+        <div class="socials">
+          ${channels.map(([id, label, href, detail]) => `
+            <a class="social" href="${esc(href)}" target="_blank" rel="noopener">
+              <span class="social-ico is-${esc(id)}" aria-hidden="true">${SOCIAL_ICONS[id] || ""}</span>
+              <span class="social-text"><b>${esc(label)}</b>${detail ? `<small>${esc(detail)}</small>` : ""}</span>
+              <svg class="social-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg>
+            </a>
+          `).join("")}
+        </div>
         ${lines.map(([label, value]) => `<div class="spec"><small>${esc(label)}</small><b>${esc(value)}</b></div>`).join("")}
-        ${phoneDigits() ? `
-          <form data-act="contact">
-            <label class="sr" for="contact-name">Nome</label>
-            <input id="contact-name" name="name" placeholder="Seu nome" maxlength="${NAME_MAX}" required>
-            <label class="sr" for="contact-message">Mensagem</label>
-            <textarea id="contact-message" name="message" placeholder="Escreva sua mensagem" maxlength="${MESSAGE_MAX}" required></textarea>
-            <button class="btn btn-orange" type="submit">Enviar no WhatsApp</button>
-          </form>
-        ` : `<p class="note">O WhatsApp da loja volta em instantes.</p>`}
       </section>
     </div>
   `;
@@ -739,15 +749,6 @@ function bind() {
       if (q) params.set("q", q);
       if (kind) params.set("kind", kind);
       location.hash = `#/catalog${params.toString() ? `?${params}` : ""}`;
-      return;
-    }
-    if (form.dataset.act === "contact") {
-      event.preventDefault();
-      const data = new FormData(form);
-      const name = String(data.get("name") || "").trim().slice(0, NAME_MAX);
-      const text = String(data.get("message") || "").trim().slice(0, MESSAGE_MAX);
-      const message = `Olá, Goldpack! Meu nome é ${name}.\n\n${text}`;
-      window.open(whatsappLink(message), "_blank", "noopener");
     }
   });
 
@@ -831,7 +832,7 @@ function scheduleRefresh() {
     } catch {
       return;
     }
-    if (currentRoute().name !== "contato") render();
+    render();
   }, 400);
 }
 

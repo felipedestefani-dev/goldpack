@@ -866,7 +866,41 @@ body:has(#boot) .hero-dot.is-active::after { animation-play-state: paused; }
   display: grid;
   gap: 12px;
 }
-.contact-card input, .contact-card textarea, .field input, .field select, .field textarea {
+.socials { display: grid; gap: 10px; margin: 4px 0; }
+.social {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease, background .15s ease;
+}
+.social:hover { border-color: var(--gold); background: var(--accent-soft); transform: translateY(-1px); }
+.social-ico {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+}
+.social-ico svg { width: 55%; height: 55%; }
+.social-ico svg.is-full { width: 100%; height: 100%; }
+.social-ico.is-instagram { background: linear-gradient(160deg, #f9a43a 0%, #e1306c 50%, #8134af 100%); }
+.social-ico.is-whatsapp { background: #25d366; }
+.social-ico.is-jamble { background: linear-gradient(180deg, #7046f0, #5a2ed8); }
+.social-text { flex: 1; min-width: 0; display: grid; }
+.social-text b { font-size: 16px; font-weight: 800; }
+.social-text small { color: var(--muted); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.social-go { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--gold); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s ease; }
+.social:hover .social-go { transform: translate(2px, -2px); }
+.field input, .field select, .field textarea {
   width: 100%;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -874,7 +908,7 @@ body:has(#boot) .hero-dot.is-active::after { animation-play-state: paused; }
   background: var(--field-bg);
   color: var(--ink);
 }
-.contact-card textarea, .field textarea { min-height: 120px; resize: vertical; }
+.field textarea { min-height: 120px; resize: vertical; }
 
 @media (min-width: 800px) {
   .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
