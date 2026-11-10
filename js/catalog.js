@@ -2,7 +2,7 @@ import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
 import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
-import { enhanceSelects } from "./ui.js";
+import { enableDragScroll, enhanceSelects } from "./ui.js";
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 
 const state = {
@@ -17,6 +17,7 @@ const state = {
   qtyFor: "",
   slide: 0,
   banners: [],
+  more: {},
 };
 
 const app = document.querySelector("#app");
@@ -137,9 +138,13 @@ function render() {
     state.qty = 1;
   }
   document.title = titleFor(route);
+  const pageKey = `${location.hash}|${state.status}`;
+  const shelves = pageKey === lastPageKey ? [...app.querySelectorAll(".shelf-scroll")].map((shelf) => shelf.scrollLeft) : [];
   app.innerHTML = view(route);
   enhanceSelects(app);
-  const pageKey = `${location.hash}|${state.status}`;
+  app.querySelectorAll(".shelf-scroll").forEach((shelf, index) => {
+    if (shelves[index]) shelf.scrollLeft = shelves[index];
+  });
   if (pageKey !== lastPageKey) app.querySelector("main")?.classList.add("enter");
   lastPageKey = pageKey;
   document.body.classList.toggle("lock", state.menuOpen);
@@ -358,10 +363,10 @@ function startRotator() {
 
 function homeView() {
   const ready = state.status === "ready";
-  const sealed = state.products.filter((product) => product.kind === "sealed").slice(0, 8);
-  const singles = state.products.filter((product) => product.kind === "single").slice(0, 8);
-  const featured = state.products.filter((product) => product.featured).slice(0, 8);
-  const accessories = state.products.filter((product) => product.kind === "accessory").slice(0, 8);
+  const sealed = state.products.filter((product) => product.kind === "sealed");
+  const singles = state.products.filter((product) => product.kind === "single");
+  const featured = state.products.filter((product) => product.featured);
+  const accessories = state.products.filter((product) => product.kind === "accessory");
   return `
     ${bannerRotator()}
     ${statusBlock()}
@@ -377,9 +382,36 @@ function section(title, products, href, { plain = false } = {}) {
   return `
     <section class="section ${plain ? "" : "wrap"}">
       <h2 class="section-title"><a href="${esc(href)}">${esc(title)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a></h2>
-      <div class="grid">${products.map(card).join("")}</div>
+      <div class="shelf-scroll"><div class="grid">${products.map(card).join("")}</div></div>
     </section>
   `;
+}
+
+const WIDE = matchMedia("(min-width: 800px)");
+const ROWS_PER_PAGE = 3;
+
+function visibleCount(key) {
+  return (WIDE.matches ? 4 : 2) * ROWS_PER_PAGE * (state.more[key] || 1);
+}
+
+function productGrid(products, key) {
+  const shown = visibleCount(key);
+  const rest = products.length - shown;
+  return `
+    <div class="grid" data-grid="${esc(key)}">${products.slice(0, shown).map(card).join("")}</div>
+    ${rest > 0 ? `<div class="more"><button class="btn btn-line more-btn" type="button" data-act="more" data-key="${esc(key)}">Ver mais <span>${rest}</span></button></div>` : ""}
+  `;
+}
+
+function showMore(key) {
+  const before = visibleCount(key);
+  state.more[key] = (state.more[key] || 1) + 1;
+  render();
+  const grid = [...document.querySelectorAll("[data-grid]")].find((item) => item.dataset.grid === key);
+  [...(grid?.children || [])].slice(before).forEach((item, index) => {
+    item.classList.add("is-new");
+    item.style.animationDelay = `${Math.min(index, 7) * 50}ms`;
+  });
 }
 
 function card(product) {
@@ -476,7 +508,7 @@ function catalogView(route) {
         ${state.status !== "ready" ? statusBlock() : ""}
         ${state.status === "ready" && !state.products.length ? emptyCatalog() : ""}
         ${state.status === "ready" && state.products.length && !products.length ? `<div class="panel"><h2>Nada encontrado</h2><p>Tente outro nome, coleção ou limpe a busca.</p></div>` : ""}
-        ${products.length ? `<div class="grid">${products.map(card).join("")}</div>` : ""}
+        ${products.length ? productGrid(products, "catalog") : ""}
       </div>
     </div>
   `;
@@ -643,6 +675,10 @@ function bind() {
       pickScope(target);
       return;
     }
+    if (act === "more") {
+      showMore(target.dataset.key);
+      return;
+    }
     if (act === "notice-ok") {
       state.noticeOpen = false;
       try {
@@ -719,8 +755,12 @@ function bind() {
     if (state.menuOpen) placeMenu();
   });
 
+  WIDE.addEventListener("change", render);
+  enableDragScroll(".shelf-scroll");
+
   window.addEventListener("hashchange", () => {
     state.menuOpen = false;
+    state.more = {};
     window.scrollTo(0, 0);
     render();
   });

@@ -544,6 +544,31 @@ p { margin: 0; }
 .enter .pcard:nth-child(7) { animation-delay: 300ms; }
 .enter .pcard:nth-child(n+8) { animation-delay: 350ms; }
 .enter .product > :nth-child(2) { animation-delay: 80ms; }
+.pcard.is-new { animation: rise .4s ease backwards; }
+.shelf-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: -6px -4px 0;
+  padding: 6px 4px 16px;
+  cursor: grab;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+}
+.shelf-scroll.is-drag { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.shelf-scroll::-webkit-scrollbar { height: 8px; }
+.shelf-scroll::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 999px; }
+.shelf-scroll::-webkit-scrollbar-thumb { background: #d9d2cb; border-radius: 999px; }
+.shelf-scroll::-webkit-scrollbar-thumb:hover { background: var(--orange); }
+@supports not selector(::-webkit-scrollbar) {
+  .shelf-scroll { scrollbar-width: thin; scrollbar-color: #d9d2cb transparent; }
+}
+.shelf-scroll .grid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 210px; width: max-content; }
+.shelf-scroll .pcard { scroll-snap-align: start; }
+.shelf-scroll img { -webkit-user-drag: none; }
+.more { display: flex; justify-content: center; margin-top: 20px; }
+.more-btn { min-width: 180px; border-width: 1.5px; }
+.more-btn:hover { border-color: var(--orange); color: var(--orange-deep); }
+.more-btn span { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--orange-soft); color: var(--orange-deep); font-size: 12px; font-weight: 800; }
 .ph {
   display: grid;
   justify-items: center;
@@ -889,6 +914,7 @@ p { margin: 0; }
   .price { font-size: 17px; }
   .buy-card { align-self: stretch; text-align: center; padding: 7px 12px; font-size: 13px; }
   .hero-zone { width: 100%; margin-top: 0; }
+  .shelf-scroll .grid { grid-auto-columns: 41vw; }
   .hero-rotator { border: 0; border-radius: 0; }
   .hero-slide img { aspect-ratio: 12 / 5; object-fit: cover; }
   .hero-arrow { width: 28px; height: 44px; margin-top: -22px; }
@@ -898,7 +924,7 @@ p { margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .spinner, .boot-sprite, .menu, .dd-list, .scope-list, .confirm, .confirm-back { animation: none; }
-  .enter *, .enter .pcard { animation: none !important; }
+  .enter *, .enter .pcard, .pcard.is-new { animation: none !important; }
   .pcard .visual::after { display: none; }
   .pcard:hover .visual img, .btn:active { transform: none; }
   .hero-dot.is-active { width: 28px; height: 10px; background: var(--orange); }

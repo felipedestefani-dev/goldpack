@@ -101,6 +101,41 @@ document.addEventListener("keydown", (event) => {
   next?.focus();
 }, true);
 
+export function enableDragScroll(selector) {
+  let drag = null;
+  document.addEventListener("pointerdown", (event) => {
+    const rail = event.target.closest(selector);
+    if (!rail || event.pointerType !== "mouse" || event.button !== 0) return;
+    drag = { rail, x: event.clientX, left: rail.scrollLeft, moved: false };
+  });
+  document.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 6) return;
+    drag.moved = true;
+    drag.rail.classList.add("is-drag");
+    drag.rail.scrollLeft = drag.left - dx;
+  });
+  const stop = () => {
+    if (!drag) return;
+    const { rail, moved } = drag;
+    drag = null;
+    rail.classList.remove("is-drag");
+    if (!moved) return;
+    const block = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    rail.addEventListener("click", block, { capture: true, once: true });
+    setTimeout(() => rail.removeEventListener("click", block, { capture: true }), 0);
+  };
+  document.addEventListener("pointerup", stop);
+  document.addEventListener("pointercancel", stop);
+  document.addEventListener("dragstart", (event) => {
+    if (event.target.closest?.(selector)) event.preventDefault();
+  });
+}
+
 export function confirmDialog({ title, message, confirmLabel = "Excluir", cancelLabel = "Cancelar", danger = true }) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
