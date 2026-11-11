@@ -149,7 +149,6 @@ p { margin: 0; }
   text-align: center;
   text-decoration: none;
 }
-.live-bar b { color: var(--gold); }
 .live-badge {
   display: inline-flex;
   align-items: center;
