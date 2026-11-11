@@ -35,26 +35,31 @@ export function kindLabel(kind) {
   return KIND_LABEL[kind] || "Produto";
 }
 
+// Bandeiras em imagem (assets/flags): o Windows não desenha emoji de bandeira, só as letras.
 export const LANGUAGES = [
-  ["PT-BR", "🇧🇷", "Português"],
-  ["EN", "🇺🇸", "Inglês"],
-  ["JP", "🇯🇵", "Japonês"],
-  ["KO", "🇰🇷", "Coreano"],
-  ["ZH", "🇨🇳", "Chinês"],
-  ["ES", "🇪🇸", "Espanhol"],
-  ["DE", "🇩🇪", "Alemão"],
-  ["FR", "🇫🇷", "Francês"],
-  ["IT", "🇮🇹", "Italiano"],
+  ["PT-BR", "br", "Português"],
+  ["EN", "us", "Inglês"],
+  ["JP", "jp", "Japonês"],
+  ["KO", "kr", "Coreano"],
+  ["ZH", "cn", "Chinês"],
+  ["ES", "es", "Espanhol"],
+  ["DE", "de", "Alemão"],
+  ["FR", "fr", "Francês"],
+  ["IT", "it", "Italiano"],
 ];
 
 export function languageInfo(code) {
   const found = LANGUAGES.find(([value]) => value === code);
-  return found ? { flag: found[1], name: found[2] } : { flag: code || "", name: code || "" };
+  return found ? { country: found[1], name: found[2] } : { country: "", name: code || "" };
+}
+
+export function flagImg(country, name = "") {
+  return country ? `<img class="flag-img" src="/assets/flags/${esc(country)}.svg" alt="${esc(name)}" title="${esc(name)}" width="21" height="14">` : "";
 }
 
 export function languageFlag(code) {
-  const { flag, name } = languageInfo(code);
-  return flag ? `<span class="flag" role="img" aria-label="${esc(name)}" title="${esc(name)}">${esc(flag)}</span>` : "";
+  const { country, name } = languageInfo(code);
+  return country ? flagImg(country, name) : esc(name);
 }
 
 export function discountOf(product) {

@@ -664,7 +664,8 @@ body.admin {
 .flags label:hover span { opacity: 1; filter: none; }
 .flags input:checked + span { opacity: 1; filter: none; border-color: var(--orange); background: #fff4ea; box-shadow: 0 0 0 3px rgba(240, 120, 22, 0.16); transform: translateY(-1px); }
 .flags input:focus-visible + span { outline: 2px solid var(--orange); outline-offset: 2px; }
-.flag { font-size: 1.05em; line-height: 1; }
+.flags .flag-img { width: 26px; height: auto; }
+.flag-img { display: inline-block; vertical-align: -2px; width: 18px; height: auto; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12); }
 
 .toggle { display: flex; align-items: center; gap: 12px; cursor: pointer; color: var(--ink); }
 .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }

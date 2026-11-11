@@ -1,6 +1,6 @@
 import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
-import { discountOf, esc, friendlyError, kindLabel, languageInfo, money, safeUrl } from "./format.js";
+import { discountOf, esc, friendlyError, kindLabel, languageFlag, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
 import { SOCIAL_ICONS, adHtml, isAdBanner, socialLinks } from "./banner-ad.js";
 import { enableDragScroll, enhanceSelects } from "./ui.js";
@@ -446,6 +446,7 @@ function card(product) {
       <a class="pcard-hit" href="#/p/${encodeURIComponent(product.id)}">
         <div class="visual">
           ${image ? `<img src="${esc(image)}" alt="">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
+          ${product.language ? `<span class="lang-badge">${languageFlag(product.language)}</span>` : ""}
         </div>
         ${product.tag ? `<span class="tag">${esc(product.tag)}</span>` : `<span class="tag alt">${esc(kindLabel(product.kind))}</span>`}
         <h3 class="name">${esc(product.name)}</h3>
@@ -510,7 +511,7 @@ function catalogView(route) {
         </label>
         ${select("game", "Jogo", uniqueValues("game"))}
         ${select("collection", "Coleção", uniqueValues("collection"))}
-        ${select("language", "Idioma", uniqueValues("language"), (code) => languageInfo(code).flag)}
+        ${select("language", "Idioma", uniqueValues("language"), (code) => languageInfo(code).name)}
         ${select("condition", "Condição", uniqueValues("condition"))}
         ${select("finish", "Acabamento", uniqueValues("finish"))}
         <label>Ordenar
@@ -557,7 +558,7 @@ function productView(route) {
     ["Coleção", product.collection],
     ["Código", product.collection_code],
     ["Número", product.card_number],
-    ["Idioma", product.language && languageInfo(product.language).flag],
+    ["Idioma", product.language && languageInfo(product.language).name, product.language && languageFlag(product.language)],
     ["Condição", product.condition],
     ["Acabamento", product.finish],
     ["Raridade", product.rarity],
@@ -571,9 +572,12 @@ function productView(route) {
         <span>${esc(product.name)}</span>
       </nav>
       <article class="product">
-        <div class="gallery">
-          ${image ? `<img src="${esc(image)}" alt="${esc(product.name)}">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
-        </div>
+        <figure class="gallery-wrap">
+          <div class="gallery">
+            ${image ? `<img src="${esc(image)}" alt="${esc(product.name)}">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
+          </div>
+          <figcaption class="illustrative">Imagens meramente ilustrativas.</figcaption>
+        </figure>
         <div>
           ${product.badge ? `<span class="tag">${esc(product.badge)}</span>` : ""}
           <h1>${esc(product.name)}</h1>
@@ -581,7 +585,7 @@ function productView(route) {
           ${discountOf(product) ? `<div class="compare">${money(product.compare_at)}</div>` : ""}
           <div class="price">${money(product.price)}</div>
           <div class="specs">
-            ${specs.map(([label, value]) => `<div class="spec"><small>${esc(label)}</small><b>${esc(value)}</b></div>`).join("")}
+            ${specs.map(([label, value, flag]) => `<div class="spec"><small>${esc(label)}</small><b>${flag ? `${flag} ` : ""}${esc(value)}</b></div>`).join("")}
           </div>
           ${product.description ? `<p class="desc">${esc(product.description)}</p>` : ""}
           <div class="buy">
@@ -649,6 +653,7 @@ function footer() {
         <a href="#/contato">Contato</a>
         ${POLICIES.map(([id, label]) => `<a href="#/${id}">${esc(label)}</a>`).join("")}
       </nav>
+      <p class="footer-note">Imagens meramente ilustrativas.</p>
     </footer>
   `;
 }

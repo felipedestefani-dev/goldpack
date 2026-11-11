@@ -1,5 +1,5 @@
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
-import { LANGUAGES, esc, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
+import { LANGUAGES, esc, flagImg, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
 import { cardDetails, collectionCode, loadSets, searchCards } from "./pokemon.js";
 import { confirmDialog, enhanceSelects } from "./ui.js";
 import { iconImg, tabIcon } from "./icons.js";
@@ -981,7 +981,7 @@ function editor(form) {
       <div class="field">
         <span>Idioma</span>
         <div class="flags" role="radiogroup" aria-label="Idioma">
-          ${LANGUAGES.map(([value, flag, name]) => `<label title="${esc(name)}"><input type="radio" name="language" value="${value}" aria-label="${esc(name)}" ${form.language === value ? "checked" : ""}><span>${flag}</span></label>`).join("")}
+          ${LANGUAGES.map(([value, country, name]) => `<label title="${esc(name)}"><input type="radio" name="language" value="${value}" aria-label="${esc(name)}" ${form.language === value ? "checked" : ""}><span>${flagImg(country)}</span></label>`).join("")}
         </div>
       </div>
       <div class="grid2">
