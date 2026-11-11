@@ -1,4 +1,5 @@
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
+import { store } from "./config.js";
 import { LANGUAGES, esc, flagImg, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
 import { cardDetails, collectionCode, loadSets, searchCards } from "./pokemon.js";
 import { confirmDialog, enhanceSelects } from "./ui.js";
@@ -62,6 +63,7 @@ const SECTIONS = [
   ["estoque", "Estoque", "stock"],
   ["banners", "Banners", "banners"],
   ["abas", "Abas", "tabs"],
+  ["live", "Live", "live"],
   ["visitas", "Visitas", "visits"],
 ];
 const PRODUCT_FILTERS = [
@@ -87,6 +89,7 @@ const state = {
   banners: [],
   tabs: [],
   visits: [],
+  live: null,
   sets: [],
   error: "",
   notice: "",
@@ -266,6 +269,7 @@ function currentSection() {
 
 function navBadge(id) {
   if (id === "produtos" && state.products.length) return `<em class="nav-count">${state.products.length}</em>`;
+  if (id === "live" && state.live?.active) return `<em class="nav-count live-dot" title="Ao vivo">●</em>`;
   if (id === "estoque") {
     const out = state.products.filter((product) => stockOf(product) <= 0).length;
     if (out) return `<em class="nav-count warn" title="${out} esgotado(s)">${out}</em>`;
@@ -320,6 +324,7 @@ function panelFor(section) {
   if (section === "estoque") return stockPanel();
   if (section === "banners") return bannersPanel();
   if (section === "abas") return tabsPanel();
+  if (section === "live") return livePanel();
   if (section === "visitas") return visitsPanel();
   return overview();
 }
@@ -731,6 +736,25 @@ function tabsPanel() {
   `;
 }
 
+function livePanel() {
+  const live = state.live;
+  const on = Boolean(live?.active);
+  const since = on && live.started_at ? when(live.started_at) : "";
+  const jamble = safeUrl(store.jamble);
+  return `
+    ${pageHead("Live", "Avise na loja quando estiver ao vivo na Jamble")}
+    ${live ? `
+      <section class="card live-card${on ? " is-on" : ""}">
+        <span class="live-state">${on ? `<i></i>Ao vivo${since ? ` desde ${esc(since)}` : ""}` : "Fora do ar"}</span>
+        <h2>${on ? "O aviso de live está aparecendo na loja" : "Nenhum aviso na loja agora"}</h2>
+        <p class="muted">${on ? "Os clientes veem uma faixa “Ao vivo na Jamble” no topo do catálogo, com o link da live." : "Quando começar a live, clique no botão e a faixa aparece no topo do catálogo na hora."}</p>
+        <button class="btn ${on ? "btn-line" : "btn-orange"} live-btn" type="button" data-act="live-toggle"${state.busy ? " disabled" : ""}>${on ? "Encerrar live" : "Estou ao vivo"}</button>
+        ${jamble ? `<a class="live-link" href="${esc(jamble)}" target="_blank" rel="noopener">${icon("link")}<span>${esc(jamble.replace(/^https?:\/\/(www\.)?/, ""))}</span></a>` : ""}
+      </section>
+    ` : emptyState("Falta criar a tabela da live", "No Supabase, abra o SQL Editor e rode o arquivo supabase/schema.sql de novo. Depois recarregue o painel.")}
+  `;
+}
+
 function visitsPanel() {
   const days = visitDays(30);
   const today = days[days.length - 1].count;
@@ -1096,14 +1120,16 @@ async function loadAll(supabase) {
     .order("created_at", { ascending: false });
   if (error) throw error;
   state.products = data || [];
-  const [banners, tabs, visits] = await Promise.all([
+  const [banners, tabs, visits, live] = await Promise.all([
     supabase.from("banners").select("*").order("sort_order", { ascending: true }),
     supabase.from("store_tabs").select("*").order("sort_order", { ascending: true }),
     supabase.from("visits").select("*").order("created_at", { ascending: false }).limit(1000),
+    supabase.from("live_status").select("*").eq("id", 1).maybeSingle(),
   ]);
   state.banners = banners.error ? [] : banners.data || [];
   state.tabs = tabs.error ? [] : tabs.data || [];
   state.visits = visits.error ? [] : visits.data || [];
+  state.live = live.error ? null : live.data || null;
   const missing = banners.error || tabs.error || visits.error;
   state.extraError = missing ? friendlyError(missing) : "";
 }
@@ -1370,6 +1396,29 @@ async function toggleProduct(id) {
     state.error = friendlyError(error);
   }
   render();
+}
+
+async function toggleLive() {
+  if (!state.live || state.busy) return;
+  const active = !state.live.active;
+  state.busy = true;
+  render();
+  try {
+    const supabase = await client();
+    const { error } = await supabase
+      .from("live_status")
+      .update({ active, started_at: active ? new Date().toISOString() : null })
+      .eq("id", 1);
+    if (error) throw error;
+    await afterChange(supabase);
+    state.notice = active ? "Aviso de live publicado na loja." : "Live encerrada. O aviso saiu da loja.";
+    state.error = "";
+  } catch (error) {
+    state.error = friendlyError(error);
+  } finally {
+    state.busy = false;
+    render();
+  }
 }
 
 async function deleteProduct(id) {
@@ -1808,6 +1857,10 @@ function bind() {
     }
     if (act === "toggle") {
       await toggleProduct(target.dataset.id);
+      return;
+    }
+    if (act === "live-toggle") {
+      await toggleLive();
       return;
     }
     if (act === "delete") {

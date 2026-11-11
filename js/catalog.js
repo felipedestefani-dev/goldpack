@@ -18,6 +18,7 @@ const state = {
   qtyFor: "",
   slide: 0,
   banners: [],
+  live: false,
   more: {},
 };
 
@@ -182,10 +183,23 @@ function titleFor(route) {
   return "Goldpack — TCG, colecionáveis e games";
 }
 
+function liveBar() {
+  const href = safeUrl(store.jamble);
+  if (!state.live || !href) return "";
+  return `
+    <a class="live-bar" href="${esc(href)}" target="_blank" rel="noopener">
+      <span class="live-badge"><i></i>Ao vivo</span>
+      <span class="live-text">Estamos em live agora na <b>Jamble</b></span>
+      <span class="live-cta">Assistir →</span>
+    </a>
+  `;
+}
+
 function view(route) {
   return `
     <a class="skip" href="#conteudo">Ir para o conteúdo</a>
     ${header(route)}
+    ${liveBar()}
     <main id="conteudo">
       ${route.name === "catalog" ? catalogView(route) : ""}
       ${route.name === "p" ? productView(route) : ""}
@@ -854,12 +868,14 @@ async function listenForChanges() {
 }
 
 async function loadStorefrontExtras(supabase) {
-  const [tabs, heroes] = await Promise.all([
+  const [tabs, heroes, live] = await Promise.all([
     supabase.from("store_tabs").select("*").eq("active", true).order("sort_order", { ascending: true }),
     supabase.from("banners").select("*").eq("active", true).order("sort_order", { ascending: true }),
+    supabase.from("live_status").select("active").eq("id", 1).maybeSingle(),
   ]);
   if (!tabs.error) state.tabs = tabs.data || [];
   if (!heroes.error) state.banners = heroes.data || [];
+  state.live = !live.error && Boolean(live.data?.active);
 }
 
 function visitDay() {

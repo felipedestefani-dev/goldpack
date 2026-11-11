@@ -274,3 +274,33 @@ from (
     ('Contato', '#/contato', 5)
 ) as seed(label, href, sort_order)
 where not exists (select 1 from public.store_tabs);
+
+-- Aviso de live na Jamble: uma linha só, ligada e desligada pela aba Live do painel.
+create table if not exists public.live_status (
+  id smallint primary key default 1 check (id = 1),
+  active boolean not null default false,
+  started_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+insert into public.live_status (id) values (1) on conflict (id) do nothing;
+
+drop trigger if exists live_status_touch_updated_at on public.live_status;
+create trigger live_status_touch_updated_at
+  before update on public.live_status
+  for each row execute function public.touch_updated_at();
+
+alter table public.live_status enable row level security;
+
+drop policy if exists "public reads live status" on public.live_status;
+create policy "public reads live status"
+  on public.live_status for select to anon, authenticated
+  using (true);
+
+drop policy if exists "admins update live status" on public.live_status;
+create policy "admins update live status"
+  on public.live_status for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+grant select on public.live_status to anon, authenticated;
+grant update on public.live_status to authenticated;

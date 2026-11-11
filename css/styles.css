@@ -135,6 +135,39 @@ p { margin: 0; }
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
+.live-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, #4c1d95, #7c3aed 50%, #4c1d95);
+  border-bottom: 1px solid var(--line-strong);
+  color: #fff;
+  font-size: 15px;
+  text-align: center;
+  text-decoration: none;
+}
+.live-bar b { color: var(--gold); }
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e11d48;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.live-badge i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: live-pulse 1.4s ease-in-out infinite; }
+.live-cta { color: var(--gold); font-weight: 800; white-space: nowrap; }
+.live-bar:hover .live-cta { text-decoration: underline; }
+@keyframes live-pulse { 50% { opacity: 0.3; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .live-badge i { animation: none; } }
+
 .header-inner {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
