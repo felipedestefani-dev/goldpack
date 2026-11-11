@@ -446,13 +446,12 @@ function card(product) {
       <a class="pcard-hit" href="#/p/${encodeURIComponent(product.id)}">
         <div class="visual">
           ${image ? `<img src="${esc(image)}" alt="">` : `<div class="ph"><b>${esc(initials(product.name))}</b></div>`}
-          ${product.language ? `<span class="lang-badge">${languageFlag(product.language)}</span>` : ""}
         </div>
         ${product.tag ? `<span class="tag">${esc(product.tag)}</span>` : `<span class="tag alt">${esc(kindLabel(product.kind))}</span>`}
         <h3 class="name">${esc(product.name)}</h3>
         <p class="meta">
           ${product.collection ? `<span>${esc(product.collection)} ${esc(number)}</span>` : ""}
-          ${product.condition ? `<b>${esc(product.condition)}</b>` : ""}
+          ${product.condition || product.language ? `<span class="cond">${product.condition ? `<b>${esc(product.condition)}</b>` : ""}${product.language ? languageFlag(product.language) : ""}</span>` : ""}
           ${product.finish && product.finish !== "Normal" ? `<span>${esc(product.finish)}</span>` : ""}
         </p>
         <div class="price-row">
