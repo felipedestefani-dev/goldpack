@@ -275,6 +275,19 @@ from (
 ) as seed(label, href, sort_order)
 where not exists (select 1 from public.store_tabs);
 
+-- Ordem dos produtos na loja (setas na aba Produtos do painel). Começa do maior para o menor valor.
+alter table public.products add column if not exists sort_order double precision;
+
+update public.products p
+set sort_order = ranked.position
+from (
+  select id, row_number() over (order by price desc, created_at desc) as position
+  from public.products
+) as ranked
+where p.id = ranked.id and p.sort_order is null;
+
+create index if not exists products_sort_order_idx on public.products (sort_order);
+
 -- Aviso de live na Jamble: uma linha só, ligada e desligada pela aba Live do painel.
 create table if not exists public.live_status (
   id smallint primary key default 1 check (id = 1),

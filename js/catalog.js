@@ -1,6 +1,6 @@
 import { banners, developer, store } from "./config.js";
 import { POLICIES, policyTitle, policyView } from "./policies.js";
-import { discountOf, esc, friendlyError, kindLabel, languageFlag, languageInfo, money, safeUrl } from "./format.js";
+import { byPriceDesc, byStoreOrder, discountOf, esc, friendlyError, kindLabel, languageFlag, languageInfo, money, safeUrl } from "./format.js";
 import { tabIcon } from "./icons.js";
 import { SOCIAL_ICONS, adHtml, isAdBanner, socialLinks } from "./banner-ad.js";
 import { enableDragScroll, enhanceSelects } from "./ui.js";
@@ -112,13 +112,14 @@ function applyFilters(list, params) {
     ].join(" ").toLowerCase();
     return blob.includes(q);
   });
-  const sort = params.get("sort") || "recent";
+  const sort = params.get("sort") || "store";
   const price = (product) => Number(product.price) || 0;
   if (sort === "price-asc") filtered.sort((a, b) => price(a) - price(b));
-  else if (sort === "price-desc") filtered.sort((a, b) => price(b) - price(a));
+  else if (sort === "price-desc") filtered.sort(byPriceDesc);
   else if (sort === "name") filtered.sort((a, b) => String(a.name).localeCompare(String(b.name), "pt-BR"));
   else if (sort === "stock") filtered.sort((a, b) => Number(b.stock) - Number(a.stock));
-  else filtered.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  else if (sort === "recent") filtered.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  else filtered.sort(byStoreOrder);
   return filtered;
 }
 
@@ -404,7 +405,7 @@ function homeView() {
   return `
     ${bannerRotator()}
     ${statusBlock()}
-    ${ready && featured.length ? section("Destaques", featured, "#/catalog?sort=recent") : ""}
+    ${ready && featured.length ? section("Destaques", featured, "#/catalog") : ""}
     ${ready && sealed.length ? section("Lacrados", sealed, "#/catalog?kind=sealed") : ""}
     ${ready && singles.length ? section("Avulsos", singles, "#/catalog?kind=single") : ""}
     ${ready && accessories.length ? section("Acessórios", accessories, "#/catalog?kind=accessory") : ""}
@@ -530,12 +531,13 @@ function catalogView(route) {
         <label>Ordenar
           <select data-filter="sort">
             ${options([
+              ["store", "Destaques da loja"],
               ["recent", "Mais recentes"],
-              ["price-asc", "Menor preço"],
               ["price-desc", "Maior preço"],
+              ["price-asc", "Menor preço"],
               ["name", "Nome"],
               ["stock", "Maior estoque"],
-            ], params.get("sort") || "recent")}
+            ], params.get("sort") || "store")}
           </select>
         </label>
         <label class="check"><input type="checkbox" data-filter="stock" ${params.get("stock") === "1" ? "checked" : ""}> Somente em estoque</label>
@@ -835,7 +837,7 @@ async function fetchStore() {
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  state.products = data || [];
+  state.products = (data || []).sort(byStoreOrder);
   state.status = "ready";
   await loadStorefrontExtras(supabase);
 }

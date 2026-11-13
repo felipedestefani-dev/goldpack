@@ -62,6 +62,20 @@ export function languageFlag(code) {
   return country ? flagImg(country, name) : esc(name);
 }
 
+function orderRank(product) {
+  const value = product.sort_order;
+  return value === null || value === undefined || value === "" ? Infinity : Number(value);
+}
+
+export function byPriceDesc(a, b) {
+  return (Number(b.price) || 0) - (Number(a.price) || 0) || String(b.created_at).localeCompare(String(a.created_at));
+}
+
+// Products without a position (new rows, or before the sort_order migration) fall back to highest price first.
+export function byStoreOrder(a, b) {
+  return orderRank(a) - orderRank(b) || byPriceDesc(a, b);
+}
+
 export function discountOf(product) {
   const price = Number(product.price);
   const compare = Number(product.compare_at);

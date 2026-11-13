@@ -1,6 +1,6 @@
 import { STORE_CHANNEL, getClient, isConfigured } from "./supabase.js";
 import { store } from "./config.js";
-import { LANGUAGES, esc, flagImg, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
+import { LANGUAGES, byPriceDesc, byStoreOrder, esc, flagImg, friendlyError, kindLabel, languageFlag, money, safeUrl } from "./format.js";
 import { cardDetails, collectionCode, loadSets, searchCards } from "./pokemon.js";
 import { confirmDialog, enhanceSelects } from "./ui.js";
 import { iconImg, tabIcon } from "./icons.js";
@@ -54,6 +54,9 @@ const ICONS = {
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   sparkle: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
+  sort: '<path d="M7 4v16M3 16l4 4 4-4"/><path d="M14 6h7M14 11h5M14 16h3"/>',
   link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
 };
 
@@ -585,12 +588,19 @@ function chips(filters, current, act, list, predicateFor) {
   `).join("")}</div>`;
 }
 
+function visibleProducts() {
+  return state.products.filter(matchesQuery).filter(productFilter(state.filter));
+}
+
 function productsPanel() {
   const searched = state.products.filter(matchesQuery);
   const products = searched.filter(productFilter(state.filter));
   const live = state.products.filter((product) => product.active).length;
+  const priceOrder = state.products.length > 1
+    ? `<button class="btn btn-line" type="button" data-act="price-order"${state.busy ? " disabled" : ""}>${icon("sort")}<span>Ordenar por preço</span></button>`
+    : "";
   return `
-    ${pageHead("Produtos", `${state.products.length} cadastrados · ${live} na loja`, newProductButton())}
+    ${pageHead("Produtos", `${state.products.length} cadastrados · ${live} na loja · na ordem em que aparecem na loja`, `${priceOrder}${newProductButton()}`)}
     <div class="toolbar">
       ${searchBox("Buscar por nome, coleção ou número")}
       ${chips(PRODUCT_FILTERS, state.filter, "filter", searched, productFilter)}
@@ -598,9 +608,9 @@ function productsPanel() {
     ${products.length ? `
       <div class="table">
         <div class="thead" aria-hidden="true">
-          <span>Produto</span><span>Tipo</span><span>Preço</span><span>Estoque</span><span>Na loja</span><span></span>
+          <span>Ordem</span><span>Produto</span><span>Tipo</span><span>Preço</span><span>Estoque</span><span>Na loja</span><span></span>
         </div>
-        ${products.map(productRow).join("")}
+        ${products.map((product, index) => productRow(product, index, products.length)).join("")}
       </div>
     ` : emptyState(
       state.products.length ? "Nenhum produto com esse filtro" : "Nenhum produto ainda",
@@ -610,7 +620,12 @@ function productsPanel() {
   `;
 }
 
-function productRow(product) {
+function moveButton(product, dir, disabled) {
+  const label = dir === "up" ? "Subir" : "Descer";
+  return `<button class="move-btn" type="button" data-act="move" data-dir="${dir}" data-id="${esc(product.id)}" aria-label="${label} ${esc(product.name)}" title="${label}"${disabled || state.busy ? " disabled" : ""}>${icon(dir)}</button>`;
+}
+
+function productRow(product, index, total) {
   const meta = [
     ...[product.collection, product.card_number].filter(Boolean).map(esc),
     languageFlag(product.language),
@@ -618,6 +633,10 @@ function productRow(product) {
   const compare = Number(product.compare_at) > Number(product.price) ? `<s>${money(product.compare_at)}</s>` : "";
   return `
     <article class="prow${product.active ? "" : " is-hidden"}">
+      <span class="prow-move">
+        ${moveButton(product, "up", index === 0)}
+        ${moveButton(product, "down", index === total - 1)}
+      </span>
       <button class="prow-main" type="button" data-act="edit" data-id="${esc(product.id)}">
         ${thumb(product)}
         <span class="prow-text">
@@ -1119,7 +1138,7 @@ async function loadAll(supabase) {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  state.products = data || [];
+  state.products = (data || []).sort(byStoreOrder);
   const [banners, tabs, visits, live] = await Promise.all([
     supabase.from("banners").select("*").order("sort_order", { ascending: true }),
     supabase.from("store_tabs").select("*").order("sort_order", { ascending: true }),
@@ -1365,6 +1384,7 @@ async function save(formElement) {
       featured: form.featured,
       active: form.active,
     };
+    if (!form.id && orderReady()) payload.sort_order = slotFor(payload.price);
     const query = form.id
       ? supabase.from("products").update(payload).eq("id", form.id)
       : supabase.from("products").insert(payload);
@@ -1396,6 +1416,104 @@ async function toggleProduct(id) {
     state.error = friendlyError(error);
   }
   render();
+}
+
+const ORDER_MISSING = "Falta atualizar o banco para guardar a ordem: no Supabase, rode o supabase/schema.sql no SQL Editor.";
+
+function orderReady() {
+  return state.products.some((product) => "sort_order" in product);
+}
+
+function slotFor(price) {
+  const list = state.products;
+  const index = list.findIndex((product) => (Number(product.price) || 0) < price);
+  const rank = (product) => Number(product?.sort_order);
+  const prev = index === -1 ? list[list.length - 1] : list[index - 1];
+  const next = index === -1 ? null : list[index];
+  if (prev && next && Number.isFinite(rank(prev)) && Number.isFinite(rank(next))) return (rank(prev) + rank(next)) / 2;
+  if (next && Number.isFinite(rank(next))) return rank(next) - 1;
+  if (prev && Number.isFinite(rank(prev))) return rank(prev) + 1;
+  return null;
+}
+
+async function saveOrder(supabase, list) {
+  const changes = list
+    .map((product, index) => [product, index + 1])
+    .filter(([product, value]) => product.sort_order === null || Number(product.sort_order) !== value);
+  const results = await Promise.all(changes.map(([product, value]) => (
+    supabase.from("products").update({ sort_order: value }).eq("id", product.id)
+  )));
+  const failed = results.find((result) => result.error);
+  if (failed) throw failed.error;
+}
+
+async function moveProduct(id, dir) {
+  if (state.busy) return;
+  if (!orderReady()) {
+    state.error = ORDER_MISSING;
+    render();
+    return;
+  }
+  const visible = visibleProducts();
+  const index = visible.findIndex((product) => product.id === id);
+  const other = visible[index + (dir === "up" ? -1 : 1)];
+  if (index === -1 || !other) return;
+  const product = visible[index];
+  state.busy = true;
+  try {
+    const supabase = await client();
+    const a = Number(product.sort_order);
+    const b = Number(other.sort_order);
+    if (product.sort_order !== null && other.sort_order !== null && a !== b) {
+      const results = await Promise.all([
+        supabase.from("products").update({ sort_order: b }).eq("id", product.id),
+        supabase.from("products").update({ sort_order: a }).eq("id", other.id),
+      ]);
+      const failed = results.find((result) => result.error);
+      if (failed) throw failed.error;
+    } else {
+      const list = [...state.products];
+      const from = list.indexOf(product);
+      const to = list.indexOf(other);
+      [list[from], list[to]] = [list[to], list[from]];
+      await saveOrder(supabase, list);
+    }
+    await afterChange(supabase);
+    state.error = "";
+  } catch (error) {
+    state.error = friendlyError(error);
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+async function orderByPrice() {
+  if (state.busy) return;
+  if (!orderReady()) {
+    state.error = ORDER_MISSING;
+    render();
+    return;
+  }
+  const ok = await confirmDialog({
+    title: "Ordenar por preço?",
+    message: "Todos os produtos voltam para a ordem do maior para o menor valor. A ordem que você ajustou à mão será substituída.",
+  });
+  if (!ok) return;
+  state.busy = true;
+  render();
+  try {
+    const supabase = await client();
+    await saveOrder(supabase, [...state.products].sort(byPriceDesc));
+    await afterChange(supabase);
+    state.notice = "Produtos ordenados do maior para o menor valor.";
+    state.error = "";
+  } catch (error) {
+    state.error = friendlyError(error);
+  } finally {
+    state.busy = false;
+    render();
+  }
 }
 
 async function toggleLive() {
@@ -1861,6 +1979,14 @@ function bind() {
     }
     if (act === "live-toggle") {
       await toggleLive();
+      return;
+    }
+    if (act === "move") {
+      await moveProduct(target.dataset.id, target.dataset.dir);
+      return;
+    }
+    if (act === "price-order") {
+      await orderByPrice();
       return;
     }
     if (act === "delete") {
