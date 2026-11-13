@@ -1,5 +1,13 @@
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
+// iOS Safari ignores user-scalable=no in the viewport meta, so pinch zoom has to be cancelled here.
+for (const type of ["gesturestart", "gesturechange"]) {
+  document.addEventListener(type, (event) => event.preventDefault(), { passive: false });
+}
+document.addEventListener("touchmove", (event) => {
+  if (event.touches.length > 1) event.preventDefault();
+}, { passive: false });
+
 function closeAll(except) {
   document.querySelectorAll(".dd.open").forEach((dd) => {
     if (dd === except) return;
