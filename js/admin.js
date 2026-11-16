@@ -947,7 +947,7 @@ function bannerEditor(form) {
       <legend>Imagem</legend>
       <div class="drop banner-drop">
         <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-art-file" name="image" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "" : "disabled"}></label>
-        <p class="hint">Opcional: sem imagem, o texto ocupa o banner todo. É a arte que flutua ao lado do texto: use PNG ou WebP sem fundo (produto recortado). JPG vira um card com borda branca. Até 5 MB.</p>
+        <p class="hint">Opcional. PNG ou WebP sem fundo = personagem/produto flutuando. JPG = fundo da cena inteira (ex.: Mimikyu de chapéu), com o texto animado por cima. Até 5 MB.</p>
       </div>
     </fieldset>
     <fieldset class="fs" data-style="image" ${anim ? "hidden" : ""}>
@@ -957,13 +957,13 @@ function bannerEditor(form) {
           <p class="ad-label">Banner PC</p>
           <img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}>
           <label class="file-btn">${icon("image")}<span>Escolher PC</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "disabled" : ""}></label>
-          <p class="hint">2400 × 800 px (3:1), PNG, JPG ou WebP até 5 MB. No computador a arte fica no centro (até 1120 px) e as laterais usam blur.</p>
+          <p class="hint">1920 × 640 px (3:1), PNG, JPG ou WebP até 5 MB. Vai de um lado ao outro da tela no computador.</p>
         </div>
         <div class="drop banner-drop">
           <p class="ad-label">Banner celular</p>
           <img id="image-mobile-preview" class="is-mobile" alt="" ${previewMobile ? `src="${esc(previewMobile)}"` : "hidden"}>
           <label class="file-btn">${icon("image")}<span>Escolher celular</span><input id="image-mobile-file" name="image_mobile" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "disabled" : ""}></label>
-          <p class="hint">2400 × 800 px (3:1), PNG, JPG ou WebP até 5 MB. Ocupa a largura toda do celular. Sem essa arte, a loja usa a do PC.</p>
+          <p class="hint">1920 × 640 px (3:1), PNG, JPG ou WebP até 5 MB. Vai de um lado ao outro no celular. Sem essa arte, a loja usa a do PC.</p>
         </div>
       </div>
     </fieldset>
@@ -2125,7 +2125,7 @@ function bind() {
       const file = target.files?.[0];
       if (target.id === "image-art-file") {
         if (file && state.editor?.type === "banner") {
-          bannerArt = { url: URL.createObjectURL(file), cutout: file.type !== "image/jpeg" };
+          bannerArt = { url: URL.createObjectURL(file), cutout: file.type === "image/jpeg" ? false : true };
           refreshBannerEditor();
         }
       } else {

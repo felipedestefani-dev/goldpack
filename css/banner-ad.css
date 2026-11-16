@@ -65,6 +65,31 @@
     radial-gradient(40% 120% at 0% 0%, var(--ad-glow1), transparent 70%),
     radial-gradient(35% 120% at 100% 100%, var(--ad-glow2), transparent 70%);
 }
+.ad.has-photo {
+  --ad-photo-scrim: linear-gradient(105deg, rgba(12, 6, 22, .9) 0%, rgba(12, 6, 22, .62) 38%, rgba(12, 6, 22, .2) 62%, rgba(12, 6, 22, .45) 100%);
+  background:
+    var(--ad-photo-scrim),
+    var(--ad-photo) 28% center / cover no-repeat;
+}
+.ad.has-photo .ad-ring { display: none; }
+.ad.has-photo .ad-art { justify-content: flex-end; align-items: flex-end; padding-bottom: 2.5cqw; }
+.hero-slide .ad.has-photo::before {
+  background:
+    var(--ad-photo-scrim),
+    var(--ad-photo) 28% center / cover no-repeat;
+}
+.hero-slide .ad.has-photo::after { background: none; }
+.ad-claro.has-photo {
+  --ad-photo-scrim: linear-gradient(105deg, rgba(255, 255, 255, .92) 0%, rgba(255, 255, 255, .72) 38%, rgba(255, 255, 255, .22) 62%, rgba(255, 255, 255, .5) 100%);
+}
+@container (min-width: 760px) {
+  .ad.has-photo,
+  .hero-slide .ad.has-photo::before {
+    background:
+      var(--ad-photo-scrim),
+      var(--ad-photo) 22% center / cover no-repeat;
+  }
+}
 .ad-verde {
   --ad-bg: linear-gradient(135deg, #082a1d 0%, #0a1c33 55%, #0c0616 100%);
   --ad-glow1: rgba(34, 197, 94, .38);

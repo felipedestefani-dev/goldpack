@@ -41,11 +41,14 @@ function adTheme(theme) {
 
 export function adHtml(banner, { art, cutout } = {}) {
   const src = art ?? safeUrl(banner.image_url);
-  const isCutout = cutout ?? !/\.jpe?g(\?|$)/i.test(src);
+  const isJpeg = /\.jpe?g(\?|$)/i.test(src);
+  const photoBg = Boolean(src) && (cutout === false || (cutout == null && isJpeg));
+  const isCutout = !photoBg && (cutout ?? !isJpeg);
   const text = (key) => String(banner[key] || "").trim().slice(0, AD_MAX);
-  return `<div class="ad-box"><div class="ad ad-${adTheme(banner.theme)}${src ? "" : " no-art"}${banner.socials ? " has-socials" : ""}">
+  const photoStyle = photoBg ? ` style="--ad-photo:url('${esc(src)}')"` : "";
+  return `<div class="ad-box"><div class="ad ad-${adTheme(banner.theme)}${src && !photoBg ? "" : " no-art"}${photoBg ? " has-photo" : ""}${banner.socials ? " has-socials" : ""}"${photoStyle}>
     <span class="ad-ring ad-r1"></span><span class="ad-ring ad-r2"></span>
-    <div class="ad-art">${src ? `<img class="ad-pic${isCutout ? "" : " is-card"}" src="${esc(src)}" alt="">` : ""}${banner.live ? `<span class="ad-live">AO VIVO</span>` : ""}</div>
+    <div class="ad-art">${src && !photoBg ? `<img class="ad-pic${isCutout ? "" : " is-card"}" src="${esc(src)}" alt="">` : ""}${banner.live ? `<span class="ad-live">AO VIVO</span>` : ""}</div>
     ${text("tag") ? `<span class="ad-tag">${esc(text("tag"))}</span>` : ""}
     <strong class="ad-title"><span class="ad-l1">${esc(text("title"))}</span>${text("highlight") ? ` <span class="ad-hl">${esc(text("highlight"))}</span>` : ""}</strong>
     ${text("subtitle") ? `<span class="ad-sub">${esc(text("subtitle"))}</span>` : ""}
