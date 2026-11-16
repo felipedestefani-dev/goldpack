@@ -315,10 +315,11 @@ function options(pairs, current) {
 
 function heroBanners() {
   const fromAdmin = state.banners
-    .filter((banner) => isAdBanner(banner) || safeUrl(banner.image_url))
+    .filter((banner) => isAdBanner(banner) || safeUrl(banner.image_url) || safeUrl(banner.image_mobile_url))
     .map((banner) => ({
       ad: isAdBanner(banner) ? banner : null,
-      image: banner.image_url,
+      image: banner.image_url || banner.image_mobile_url,
+      imageMobile: banner.image_mobile_url || banner.image_url,
       alt: banner.title || "Banner da Goldpack",
       href: banner.link || "#/catalog",
     }));
@@ -332,10 +333,16 @@ function bannerRotator() {
   const slides = list.map((banner, index) => {
     const external = /^https?:/i.test(banner.href);
     const href = external ? safeUrl(banner.href) : banner.href;
+    const desktop = esc(safeUrl(banner.image));
+    const mobile = esc(safeUrl(banner.imageMobile || banner.image));
+    const lazy = index ? ` loading="lazy"` : "";
     const body = banner.ad
       ? adHtml(banner.ad)
-      : `<img class="hero-bg" src="${esc(safeUrl(banner.image))}" alt="" aria-hidden="true"${index ? ` loading="lazy"` : ""}>
-         <img class="hero-img" src="${esc(safeUrl(banner.image))}" width="2400" height="800" alt="${esc(banner.alt)}"${index ? ` loading="lazy"` : ""}>`;
+      : `<img class="hero-bg" src="${desktop}" alt="" aria-hidden="true"${lazy}>
+         <picture>
+           <source media="(max-width: 799px)" srcset="${mobile}">
+           <img class="hero-img" src="${desktop}" width="2400" height="800" alt="${esc(banner.alt)}"${lazy}>
+         </picture>`;
     const hidden = index === current ? "" : ` aria-hidden="true"`;
     if (banner.ad?.socials) {
       return `<div class="hero-slide${index === current ? " is-active" : ""}" role="group" aria-label="${esc(banner.alt)}"${hidden}>${body}</div>`;

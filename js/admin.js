@@ -701,11 +701,12 @@ function stockPanel() {
 
 function bannersPanel() {
   return `
-    ${pageHead("Banners", "Carrossel do topo da página inicial · animado ou imagem de 2400 × 800 px", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
+    ${pageHead("Banners", "Carrossel do topo · animado ou imagem (PC e celular)", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
     ${state.banners.length ? `
       <div class="banner-grid">
         ${state.banners.map((banner) => {
-          const image = safeUrl(banner.image_url);
+          const image = safeUrl(banner.image_url) || safeUrl(banner.image_mobile_url);
+          const hasMobile = Boolean(safeUrl(banner.image_mobile_url));
           return `
             <article class="banner-card${banner.active ? "" : " is-hidden"}">
               ${isAdBanner(banner)
@@ -714,7 +715,7 @@ function bannersPanel() {
               <div class="banner-body">
                 <div>
                   <h2>${esc(banner.title || "Sem título")}</h2>
-                  <p class="muted">${banner.link ? `${icon("link")} ${esc(banner.link)}` : "Sem link"} · posição ${Number(banner.sort_order) || 0}</p>
+                  <p class="muted">${banner.link ? `${icon("link")} ${esc(banner.link)}` : "Sem link"} · posição ${Number(banner.sort_order) || 0}${isAdBanner(banner) ? "" : ` · ${hasMobile ? "PC + celular" : "só PC"}`}</p>
                 </div>
                 <span class="pill ${banner.active ? "ok" : "muted"}">${banner.active ? "Na loja" : "Oculto"}</span>
               </div>
@@ -726,7 +727,7 @@ function bannersPanel() {
           `;
         }).join("")}
       </div>
-    ` : emptyState("Nenhum banner publicado", "A página inicial está sem carrossel. Publique um banner de 2400 × 800 px e ele aparece no topo da loja.", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
+    ` : emptyState("Nenhum banner publicado", "A página inicial está sem carrossel. Publique um banner com arte de PC e de celular.", `<button class="btn btn-orange" type="button" data-act="new-banner">${icon("plus")}<span>Novo banner</span></button>`)}
   `;
 }
 
@@ -875,7 +876,11 @@ function refreshBannerEditor() {
   if (!form || state.editor?.type !== "banner") return;
   const banner = bannerFromForm(new FormData(form));
   form.querySelectorAll("[data-style]").forEach((element) => {
-    element.hidden = element.dataset.style !== banner.style;
+    const show = element.dataset.style === banner.style;
+    element.hidden = !show;
+    element.querySelectorAll("input, textarea, select").forEach((input) => {
+      input.disabled = !show;
+    });
   });
   const html = bannerAdPreview(banner);
   form.querySelectorAll(".ad-preview").forEach((box) => {
@@ -883,10 +888,20 @@ function refreshBannerEditor() {
   });
 }
 
+function checkBannerFile(file, label) {
+  if (!(file instanceof File) || !file.size) return "";
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    return `A imagem de ${label} precisa ser PNG, JPG ou WebP.`;
+  }
+  if (file.size > 5 * 1024 * 1024) return `A imagem de ${label} passa de 5 MB.`;
+  return "";
+}
+
 function bannerEditor(form) {
   bannerArt = {};
   const anim = form.style === "anim";
   const preview = safeUrl(form.image_url);
+  const previewMobile = safeUrl(form.image_mobile_url);
   const theme = AD_THEMES.some(([id]) => id === form.theme) ? form.theme : AD_THEMES[0][0];
   const text = (name, label, placeholder) => `
     <label class="field">${label}
@@ -900,7 +915,7 @@ function bannerEditor(form) {
         <label><input type="radio" name="style" value="image" ${anim ? "" : "checked"}><span>Imagem pronta</span></label>
       </div>
       <p class="hint" data-style="anim" ${anim ? "" : "hidden"}>O site desenha o banner com os textos abaixo, nas cores da Goldpack, e anima a entrada. Fica certo no celular e no computador.</p>
-      <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Uma arte pronta de 2400 × 800 px, feita fora do site.</p>
+      <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Envie uma arte para o computador e outra para o celular.</p>
     </fieldset>
     <fieldset class="fs" data-style="anim" ${anim ? "" : "hidden"}>
       <legend>Prévia</legend>
@@ -928,13 +943,28 @@ function bannerEditor(form) {
         ${toggleField("socials", "Botões das redes sociais", "Troca o botão por Instagram, WhatsApp e Jamble. O link do banner deixa de valer.", form.socials)}
       </div>
     </fieldset>
-    <fieldset class="fs">
+    <fieldset class="fs" data-style="anim" ${anim ? "" : "hidden"}>
       <legend>Imagem</legend>
       <div class="drop banner-drop">
-        <div data-style="image" ${anim ? "hidden" : ""}><img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}></div>
-        <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
-        <p class="hint" data-style="anim" ${anim ? "" : "hidden"}>Opcional: sem imagem, o texto ocupa o banner todo. É a arte que flutua ao lado do texto: use PNG ou WebP sem fundo (produto recortado). JPG vira um card com borda branca. Até 5 MB.</p>
-        <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No computador a arte fica no centro (até 1120 px) e as laterais são preenchidas com blur. No celular a tela toda fica em 3:1: deixe textos e logos nos 2000 px do centro.</p>
+        <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-art-file" name="image" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "" : "disabled"}></label>
+        <p class="hint">Opcional: sem imagem, o texto ocupa o banner todo. É a arte que flutua ao lado do texto: use PNG ou WebP sem fundo (produto recortado). JPG vira um card com borda branca. Até 5 MB.</p>
+      </div>
+    </fieldset>
+    <fieldset class="fs" data-style="image" ${anim ? "hidden" : ""}>
+      <legend>Imagens</legend>
+      <div class="banner-drops">
+        <div class="drop banner-drop">
+          <p class="ad-label">Banner PC</p>
+          <img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}>
+          <label class="file-btn">${icon("image")}<span>Escolher PC</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "disabled" : ""}></label>
+          <p class="hint">2400 × 800 px (3:1), PNG, JPG ou WebP até 5 MB. No computador a arte fica no centro (até 1120 px) e as laterais usam blur.</p>
+        </div>
+        <div class="drop banner-drop">
+          <p class="ad-label">Banner celular</p>
+          <img id="image-mobile-preview" class="is-mobile" alt="" ${previewMobile ? `src="${esc(previewMobile)}"` : "hidden"}>
+          <label class="file-btn">${icon("image")}<span>Escolher celular</span><input id="image-mobile-file" name="image_mobile" type="file" accept="image/png,image/jpeg,image/webp" ${anim ? "disabled" : ""}></label>
+          <p class="hint">2400 × 800 px (3:1), PNG, JPG ou WebP até 5 MB. Ocupa a largura toda do celular. Sem essa arte, a loja usa a do PC.</p>
+        </div>
       </div>
     </fieldset>
     <fieldset class="fs">
@@ -1228,6 +1258,7 @@ function notifyStore(supabase) {
 async function saveBanner(formElement) {
   const data = new FormData(formElement);
   const file = data.get("image");
+  const mobileFile = data.get("image_mobile");
   const banner = {
     id: state.editor?.id || "",
     type: "banner",
@@ -1235,20 +1266,15 @@ async function saveBanner(formElement) {
     link: String(data.get("link") || "").trim(),
     sort_order: Number(data.get("sort_order")) || 0,
     image_url: state.editor?.image_url || "",
+    image_mobile_url: state.editor?.image_mobile_url || "",
     active: data.get("active") === "on",
   };
   state.editor = banner;
-  if (file instanceof File && file.size) {
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      state.error = "A imagem precisa ser PNG, JPG ou WebP.";
-      render();
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      state.error = "A imagem passa de 5 MB.";
-      render();
-      return;
-    }
+  const fileError = checkBannerFile(file, "PC") || checkBannerFile(mobileFile, "celular");
+  if (fileError) {
+    state.error = fileError;
+    render();
+    return;
   }
   state.busy = true;
   state.error = "";
@@ -1258,7 +1284,8 @@ async function saveBanner(formElement) {
     const anim = banner.style === "anim";
     if (anim && !banner.title) throw new Error("Escreva o título do banner.");
     if (file instanceof File && file.size) banner.image_url = await uploadImage(supabase, file);
-    if (!anim && !safeUrl(banner.image_url)) throw new Error("Escolha a imagem do banner.");
+    if (mobileFile instanceof File && mobileFile.size) banner.image_mobile_url = await uploadImage(supabase, mobileFile);
+    if (!anim && !safeUrl(banner.image_url)) throw new Error("Escolha o banner do PC.");
     const row = {
       title: banner.title,
       link: banner.link,
@@ -1268,6 +1295,7 @@ async function saveBanner(formElement) {
     };
     const adRow = {
       ...row,
+      image_mobile_url: banner.image_mobile_url,
       style: banner.style,
       tag: banner.tag,
       highlight: banner.highlight,
@@ -1281,11 +1309,18 @@ async function saveBanner(formElement) {
       ? supabase.from("banners").update(values).eq("id", banner.id)
       : supabase.from("banners").insert(values));
     let { error } = await write(adRow);
-    const noAdColumns = error && /column/i.test(error.message || "");
-    if (noAdColumns && anim) {
+    const noColumn = error && /column/i.test(error.message || "");
+    if (noColumn && /image_mobile_url/i.test(error.message || "")) {
+      const { image_mobile_url, ...withoutMobile } = adRow;
+      ({ error } = await write(withoutMobile));
+      if (!error && safeUrl(banner.image_mobile_url)) {
+        throw new Error("Falta liberar o banner de celular no banco: no SQL Editor do Supabase, execute o supabase/schema.sql de novo.");
+      }
+    }
+    if (error && /column/i.test(error.message || "") && anim) {
       throw new Error("Falta liberar o banner animado no banco: no SQL Editor do Supabase, execute o supabase/schema.sql de novo.");
     }
-    if (noAdColumns) ({ error } = await write(row));
+    if (error && /column/i.test(error.message || "")) ({ error } = await write(row));
     if (error) throw error;
     await afterChange(supabase);
     state.editor = null;
@@ -1873,6 +1908,7 @@ function openEditor(form) {
   state.error = "";
   render();
   if (!form.type) ensureSets();
+  if (form.type === "banner") refreshBannerEditor();
 }
 
 function bind() {
@@ -1930,7 +1966,7 @@ function bind() {
       return;
     }
     if (act === "new-banner") {
-      openEditor({ type: "banner", id: "", style: "anim", theme: AD_THEMES[0][0], live: false, socials: false, title: "", tag: "", highlight: "", subtitle: "", cta: "", image_url: "", link: "", sort_order: state.banners.length, active: true });
+      openEditor({ type: "banner", id: "", style: "anim", theme: AD_THEMES[0][0], live: false, socials: false, title: "", tag: "", highlight: "", subtitle: "", cta: "", image_url: "", image_mobile_url: "", link: "", sort_order: state.banners.length, active: true });
       return;
     }
     if (act === "edit-banner") {
@@ -2085,21 +2121,27 @@ function bind() {
 
   document.addEventListener("change", (event) => {
     const target = event.target;
-    if (target.id === "image-file") {
+    if (target.id === "image-file" || target.id === "image-mobile-file" || target.id === "image-art-file") {
       const file = target.files?.[0];
-      const preview = document.getElementById("image-preview");
-      if (file && preview) {
-        preview.src = URL.createObjectURL(file);
-        preview.hidden = false;
-        const empty = document.querySelector(".photo-empty");
-        if (empty) empty.hidden = true;
-      }
-      if (file && state.editor?.type === "banner") {
-        bannerArt = { url: preview?.src || URL.createObjectURL(file), cutout: file.type !== "image/jpeg" };
-        refreshBannerEditor();
+      if (target.id === "image-art-file") {
+        if (file && state.editor?.type === "banner") {
+          bannerArt = { url: URL.createObjectURL(file), cutout: file.type !== "image/jpeg" };
+          refreshBannerEditor();
+        }
+      } else {
+        const preview = document.getElementById(target.id === "image-mobile-file" ? "image-mobile-preview" : "image-preview");
+        if (file && preview) {
+          preview.src = URL.createObjectURL(file);
+          preview.hidden = false;
+          const empty = document.querySelector(".photo-empty");
+          if (empty) empty.hidden = true;
+        }
       }
     }
-    if (["style", "theme", "live", "socials"].includes(target.name) && state.editor?.type === "banner") refreshBannerEditor();
+    if (["style", "theme", "live", "socials"].includes(target.name) && state.editor?.type === "banner") {
+      if (target.name === "style" && state.editor) state.editor.style = target.value;
+      refreshBannerEditor();
+    }
     if (target.name === "kind") {
       syncCondition(target.value);
       syncSearchHint(target.value);

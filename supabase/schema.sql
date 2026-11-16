@@ -169,6 +169,7 @@ alter table public.banners add column if not exists cta text not null default ''
 alter table public.banners add column if not exists theme text not null default 'ouro';
 alter table public.banners add column if not exists live boolean not null default false;
 alter table public.banners add column if not exists socials boolean not null default false;
+alter table public.banners add column if not exists image_mobile_url text not null default '';
 alter table public.banners drop constraint if exists banners_ad_ok;
 alter table public.banners add constraint banners_ad_ok check (
   style in ('image', 'anim') and theme in ('ouro', 'roxo', 'claro', 'verde') and

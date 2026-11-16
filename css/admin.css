@@ -819,8 +819,13 @@ body.admin {
 @media (max-width: 700px) {
   .ad-preview.is-wide .ad-box { zoom: .27; }
 }
+.banner-drops { display: grid; gap: 16px; }
+@media (min-width: 800px) {
+  .banner-drops { grid-template-columns: 1fr 1fr; }
+}
 .drop.banner-drop { display: grid; gap: 10px; }
 .banner-drop img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; border-radius: 12px; }
+.banner-drop img.is-mobile { aspect-ratio: 3 / 1; }
 /* Celular */
 @media (max-width: 1080px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
