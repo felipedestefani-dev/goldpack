@@ -994,7 +994,7 @@ body:has(#boot) .hero-dot.is-active::after { animation-play-state: paused; }
   .hero-zone { width: 100%; margin-top: 0; }
   .shelf-scroll .grid { grid-auto-columns: 41vw; }
   .hero-rotator { border: 0; border-radius: 0; }
-  .hero-slide .hero-img { aspect-ratio: 12 / 5; object-fit: cover; }
+  .hero-slide .hero-img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; object-position: center; }
   .hero-slide .hero-bg { display: none; }
   .hero-arrow { width: 28px; height: 44px; margin-top: -22px; }
   .hero-arrow.prev { left: 0; }

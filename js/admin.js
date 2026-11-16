@@ -934,7 +934,7 @@ function bannerEditor(form) {
         <div data-style="image" ${anim ? "hidden" : ""}><img id="image-preview" alt="" ${preview ? `src="${esc(preview)}"` : "hidden"}></div>
         <label class="file-btn">${icon("image")}<span>Escolher imagem</span><input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
         <p class="hint" data-style="anim" ${anim ? "" : "hidden"}>Opcional: sem imagem, o texto ocupa o banner todo. É a arte que flutua ao lado do texto: use PNG ou WebP sem fundo (produto recortado). JPG vira um card com borda branca. Até 5 MB.</p>
-        <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No celular as laterais são cortadas: deixe textos e logos nos 2000 px do centro.</p>
+        <p class="hint" data-style="image" ${anim ? "hidden" : ""}>Use 2400 × 800 px (formato 3:1), PNG, JPG ou WebP até 5 MB. No computador a arte fica no centro (até 1120 px) e as laterais são preenchidas com blur. No celular a tela toda fica em 3:1: deixe textos e logos nos 2000 px do centro.</p>
       </div>
     </fieldset>
     <fieldset class="fs">
