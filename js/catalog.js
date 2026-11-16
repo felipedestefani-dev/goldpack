@@ -341,7 +341,7 @@ function bannerRotator() {
       : `<img class="hero-bg" src="${desktop}" alt="" aria-hidden="true"${lazy}>
          <picture>
            <source media="(max-width: 799px)" srcset="${mobile}">
-           <img class="hero-img" src="${desktop}" width="2400" height="800" alt="${esc(banner.alt)}"${lazy}>
+           <img class="hero-img" src="${desktop}" width="1920" height="640" alt="${esc(banner.alt)}"${lazy}>
          </picture>`;
     const hidden = index === current ? "" : ` aria-hidden="true"`;
     if (banner.ad?.socials) {
