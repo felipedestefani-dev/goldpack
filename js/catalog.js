@@ -338,8 +338,7 @@ function bannerRotator() {
     const lazy = index ? ` loading="lazy"` : "";
     const body = banner.ad
       ? adHtml(banner.ad)
-      : `<img class="hero-bg" src="${desktop}" alt="" aria-hidden="true"${lazy}>
-         <picture>
+      : `<picture>
            <source media="(max-width: 799px)" srcset="${mobile}">
            <img class="hero-img" src="${desktop}" width="1920" height="640" alt="${esc(banner.alt)}"${lazy}>
          </picture>`;
